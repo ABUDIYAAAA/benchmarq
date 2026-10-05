@@ -110,6 +110,7 @@ CREATE TABLE user_sessions (
         REFERENCES users(id)
         ON DELETE CASCADE,
 
+    device_id VARCHAR(255) NOT NULL,
     refresh_token_hash VARCHAR(255) NOT NULL UNIQUE,
     user_agent TEXT,
     ip_address INET,
@@ -121,6 +122,7 @@ CREATE TABLE user_sessions (
 );
 
 CREATE INDEX idx_user_sessions_user_id ON user_sessions(user_id);
+CREATE INDEX idx_user_sessions_device ON user_sessions(user_id, device_id);
 CREATE INDEX idx_user_sessions_refresh_token ON user_sessions(refresh_token_hash);
 
 CREATE TABLE password_reset_tokens (

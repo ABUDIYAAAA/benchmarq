@@ -1,0 +1,20 @@
+{{template "layout" .}}
+
+{{define "title"}}Welcome to Benchmarq{{end}}
+
+{{define "content"}}
+<h2 style="margin-top: 0; color: #0f172a; font-size: 22px;">Welcome aboard, {{.Name}}! 🎉</h2>
+<p>Thank you for joining <strong>Benchmarq</strong>. We're excited to have you on our intelligent assessment and proctoring platform.</p>
+
+<p>To get started and verify your email address, please click the button below:</p>
+
+<div style="text-align: center;">
+  <a href="{{.VerifyURL}}" class="button">Verify Email Address</a>
+</div>
+
+<p style="font-size: 14px; color: #64748b;">Or copy and paste this link into your browser:<br>
+<a href="{{.VerifyURL}}" style="color: #0284c7; word-break: break-all;">{{.VerifyURL}}</a></p>
+
+<p>If you have any questions, our support team is always here to help.</p>
+<p style="margin-bottom: 0;">Best regards,<br><strong>The Benchmarq Team</strong></p>
+{{end}}

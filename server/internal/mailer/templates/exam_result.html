@@ -1,0 +1,24 @@
+{{template "layout" .}}
+
+{{define "title"}}Your Results for {{.ExamTitle}} - Benchmarq{{end}}
+
+{{define "content"}}
+<h2 style="margin-top: 0; color: #0f172a; font-size: 22px;">Assessment Results 🏆</h2>
+<p>Hello {{.StudentName}},</p>
+
+<p>Your performance report for <strong>"{{.ExamTitle}}"</strong> is now available.</p>
+
+<div class="details-box" style="text-align: center; padding: 24px;">
+  <div style="font-size: 14px; text-transform: uppercase; color: #64748b; font-weight: 700; letter-spacing: 0.5px;">Your Score</div>
+  <div style="font-size: 36px; font-weight: 800; color: #0284c7; margin: 8px 0;">{{.Score}} / {{.TotalMarks}}</div>
+  {{if .Percentage}}
+  <div style="font-size: 15px; color: #475569; font-weight: 600;">Percentage: {{.Percentage}}%</div>
+  {{end}}
+</div>
+
+<div style="text-align: center;">
+  <a href="{{.ResultURL}}" class="button">View Detailed Scorecard & Analysis</a>
+</div>
+
+<p style="margin-bottom: 0;">Keep pushing forward,<br><strong>The Benchmarq Team</strong></p>
+{{end}}

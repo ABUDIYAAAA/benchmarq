@@ -1,0 +1,52 @@
+{{template "layout" .}}
+
+{{define "title"}}Invitation to Exam: {{.ExamTitle}} - Benchmarq{{end}}
+
+{{define "content"}}
+<h2 style="margin-top: 0; color: #0f172a; font-size: 22px;">Exam Invitation 📝</h2>
+<p>Hello {{.StudentName}},</p>
+
+<p>You have been invited to participate in the assessment <strong>"{{.ExamTitle}}"</strong> on Benchmarq.</p>
+
+<div class="details-box">
+  <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+    <tr>
+      <td style="padding: 6px 0; color: #64748b; width: 120px;"><strong>Exam:</strong></td>
+      <td style="padding: 6px 0; color: #0f172a; font-weight: 600;">{{.ExamTitle}}</td>
+    </tr>
+    {{if .StartTime}}
+    <tr>
+      <td style="padding: 6px 0; color: #64748b;"><strong>Start Time:</strong></td>
+      <td style="padding: 6px 0; color: #0f172a;">{{.StartTime}}</td>
+    </tr>
+    {{end}}
+    {{if .Duration}}
+    <tr>
+      <td style="padding: 6px 0; color: #64748b;"><strong>Duration:</strong></td>
+      <td style="padding: 6px 0; color: #0f172a;">{{.Duration}}</td>
+    </tr>
+    {{end}}
+    {{if .AccessCode}}
+    <tr>
+      <td style="padding: 6px 0; color: #64748b;"><strong>Access Code:</strong></td>
+      <td style="padding: 6px 0; color: #0f172a; font-family: monospace; font-size: 15px; font-weight: 700; letter-spacing: 1px;">{{.AccessCode}}</td>
+    </tr>
+    {{end}}
+  </table>
+</div>
+
+<div style="text-align: center;">
+  <a href="{{.ExamURL}}" class="button">Access Assessment</a>
+</div>
+
+<p style="font-size: 14px; color: #64748b;">
+  ⚠️ <strong>Important Instructions:</strong>
+</p>
+<ul style="font-size: 14px; color: #475569; padding-left: 20px;">
+  <li>Ensure a stable internet connection and compatible browser (Chrome, Edge, Firefox).</li>
+  <li>Make sure your webcam and microphone permissions are granted if proctoring is enabled.</li>
+  <li>Do not switch tabs or exit fullscreen mode during the assessment.</li>
+</ul>
+
+<p style="margin-bottom: 0;">Good luck!<br><strong>The Benchmarq Examination Team</strong></p>
+{{end}}

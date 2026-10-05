@@ -2,6 +2,9 @@ package config
 
 import (
 	"log/slog"
+
+	"github.com/ABUDIYAAAA/benchmarq/internal/mailer"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // AppConfig holds core application-wide shared resources, configuration, and dependencies.
@@ -9,13 +12,16 @@ import (
 type AppConfig struct {
 	Config *Config
 	Logger *slog.Logger
-	// Mailer can be added here once mailer service is implemented
+	Mailer mailer.Mailer
+	DB     *pgxpool.Pool
 }
 
 // NewAppConfig creates and returns a new AppConfig instance.
-func NewAppConfig(cfg *Config, log *slog.Logger) *AppConfig {
+func NewAppConfig(cfg *Config, log *slog.Logger, m mailer.Mailer, db *pgxpool.Pool) *AppConfig {
 	return &AppConfig{
 		Config: cfg,
 		Logger: log,
+		Mailer: m,
+		DB:     db,
 	}
 }
