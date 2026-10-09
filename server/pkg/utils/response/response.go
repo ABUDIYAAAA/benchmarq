@@ -3,6 +3,8 @@ package response
 import (
 	"encoding/json"
 	"net/http"
+
+	"github.com/ABUDIYAAAA/benchmarq/pkg/apperr"
 )
 
 type Response struct {
@@ -43,4 +45,33 @@ func ValidationError(w http.ResponseWriter, errors map[string]string) {
 		Message: "Validation failed",
 		Errors:  errors,
 	})
+}
+
+// Fail maps an application error to the matching HTTP status and payload.
+// Internal errors are reported with a generic message so causes never leak to clients.
+func Fail(w http.ResponseWriter, err error) {
+	e, ok := apperr.As(err)
+	if !ok {
+		Error(w, http.StatusInternalServerError, "Internal server error")
+		return
+	}
+
+	switch e.Kind {
+	case apperr.KindInvalid:
+		JSON(w, http.StatusUnprocessableEntity, Response{
+			Success: false,
+			Message: e.Message,
+			Errors:  e.Fields,
+		})
+	case apperr.KindNotFound:
+		Error(w, http.StatusNotFound, e.Message)
+	case apperr.KindConflict:
+		Error(w, http.StatusConflict, e.Message)
+	case apperr.KindForbidden:
+		Error(w, http.StatusForbidden, e.Message)
+	case apperr.KindUnauthorized:
+		Error(w, http.StatusUnauthorized, e.Message)
+	default:
+		Error(w, http.StatusInternalServerError, "Internal server error")
+	}
 }
