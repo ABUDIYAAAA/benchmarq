@@ -77,6 +77,10 @@ func Forbidden(message string) *Error {
 	return &Error{Kind: KindForbidden, Message: message}
 }
 
+func Unauthorized(message string) *Error {
+	return &Error{Kind: KindUnauthorized, Message: message}
+}
+
 func Invalid(message string) *Error {
 	return &Error{Kind: KindInvalid, Message: message}
 }

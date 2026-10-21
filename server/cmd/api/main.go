@@ -13,6 +13,7 @@ import (
 	"github.com/ABUDIYAAAA/benchmarq/internal/config"
 	"github.com/ABUDIYAAAA/benchmarq/internal/database"
 	"github.com/ABUDIYAAAA/benchmarq/internal/mailer"
+	"github.com/ABUDIYAAAA/benchmarq/internal/modules/attempts"
 	"github.com/ABUDIYAAAA/benchmarq/internal/router"
 	"github.com/ABUDIYAAAA/benchmarq/pkg/utils/logger"
 )
@@ -67,6 +68,9 @@ func main() {
 	appCfg := config.NewAppConfig(cfg, infoLogger, mailManager, dbPool)
 
 	mux := router.NewRouter(appCfg)
+
+	// Settle exam attempts nobody is polling (expiry, disconnects).
+	go attempts.RunSweeper(ctx, router.NewAttemptService(appCfg), infoLogger, attempts.SweepInterval)
 
 	server := &http.Server{
 		Addr:    fmt.Sprintf(":%s", cfg.Port),

@@ -16,8 +16,8 @@ import (
 	"net/http"
 	"net/http/cookiejar"
 	"net/http/httptest"
-	"os"
 	"net/url"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sync"
@@ -34,9 +34,10 @@ import (
 )
 
 type apiClient struct {
-	t    *testing.T
-	base string
-	http *http.Client
+	t       *testing.T
+	base    string
+	http    *http.Client
+	headers map[string]string
 }
 
 type apiResponse struct {
@@ -61,6 +62,9 @@ func (c *apiClient) do(method, path string, body any) apiResponse {
 		c.t.Fatal(err)
 	}
 	req.Header.Set("Content-Type", "application/json")
+	for k, v := range c.headers {
+		req.Header.Set(k, v)
+	}
 	resp, err := c.http.Do(req)
 	if err != nil {
 		c.t.Fatal(err)
@@ -206,6 +210,7 @@ func setupServerWithMail(t *testing.T) (*httptest.Server, *pgxpool.Pool, *outbox
 		CookiePath:             "/",
 		FrontendURL:            "http://localhost:3000",
 		AllowedOrigins:         []string{"http://localhost:3000"},
+		TrustedProxies:         []string{"127.0.0.0/8", "::1/128"},
 		Environment:            "test",
 	}
 	mail := &outbox{}

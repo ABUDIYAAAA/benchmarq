@@ -8,6 +8,7 @@ import (
 	"github.com/ABUDIYAAAA/benchmarq/internal/database"
 	"github.com/ABUDIYAAAA/benchmarq/internal/middleware"
 	"github.com/ABUDIYAAAA/benchmarq/internal/modules/assignments"
+	"github.com/ABUDIYAAAA/benchmarq/internal/modules/attempts"
 	"github.com/ABUDIYAAAA/benchmarq/internal/modules/auth"
 	"github.com/ABUDIYAAAA/benchmarq/internal/modules/exams"
 	"github.com/ABUDIYAAAA/benchmarq/internal/modules/organizations"
@@ -62,10 +63,20 @@ func NewRouter(appCfg *config.AppConfig) *chi.Mux {
 			FrontendURL: appCfg.Config.FrontendURL,
 		}))
 
+		attemptHandler := attempts.NewHandler(NewAttemptService(appCfg))
+
 		api.Route("/invitations", func(inv chi.Router) {
 			inv.Use(authMiddleware)
 			orgHandler.RegisterInvitationRoutes(inv)
 		})
+
+		// Candidate portal (browser cookies) and the exam desktop app
+		// (session tokens bound to a device).
+		api.Route("/me/exams", func(me chi.Router) {
+			me.Use(authMiddleware)
+			attemptHandler.RegisterPortalRoutes(me)
+		})
+		api.Route("/runtime", attemptHandler.RegisterRuntimeRoutes)
 
 		api.Route("/orgs", func(orgs chi.Router) {
 			orgs.Use(authMiddleware)
@@ -76,11 +87,28 @@ func NewRouter(appCfg *config.AppConfig) *chi.Mux {
 				orgHandler.RegisterOrgRoutes(org)
 
 				org.Route("/exams", func(r chi.Router) {
-					examHandler.RegisterRoutes(r, questionHandler.RegisterRoutes, assignmentHandler.RegisterRoutes)
+					examHandler.RegisterRoutes(r, exams.Subroutes{
+						Questions:   questionHandler.RegisterRoutes,
+						Assignments: assignmentHandler.RegisterRoutes,
+						Attempts:    attemptHandler.RegisterStaffRoutes,
+					})
 				})
 			})
 		})
 	})
 
 	return r
+}
+
+// NewAttemptService builds the attempt runtime. The server uses it both for
+// routes and for the background sweeper.
+func NewAttemptService(appCfg *config.AppConfig) attempts.Service {
+	return attempts.NewService(
+		attempts.NewRepository(appCfg.DB),
+		exams.NewRepository(appCfg.DB),
+		questions.NewRepository(appCfg.DB),
+		database.NewTransactor(appCfg.DB),
+		appCfg.Logger,
+		attempts.Options{DesktopLaunchURL: appCfg.Config.DesktopLaunchURL},
+	)
 }

@@ -11,6 +11,12 @@ type Config struct {
 	AllowedOrigins []string `env:"ALLOWED_ORIGINS" envSeparator:"," envDefault:"http://localhost:3000,http://localhost:5173"`
 	Environment    string   `env:"ENV" envDefault:"development"`
 	FrontendURL    string   `env:"FRONTEND_URL" envDefault:"http://localhost:3000"`
+	// TrustedProxies are the reverse proxy ranges whose X-Forwarded-For and
+	// X-Real-IP headers are believed. Requests from anywhere else keep their
+	// socket address.
+	TrustedProxies []string `env:"TRUSTED_PROXIES" envSeparator:"," envDefault:"127.0.0.0/8,::1/128,10.0.0.0/8,172.16.0.0/12,192.168.0.0/16,fc00::/7"`
+	// DesktopLaunchURL is the deep link that opens the exam desktop app.
+	DesktopLaunchURL string `env:"DESKTOP_LAUNCH_URL" envDefault:"benchmarq://launch"`
 
 	// JWT Configuration
 	JWTSecret              string `env:"JWT_SECRET" envDefault:"benchmarq_super_secret_jwt_key_change_in_prod_12345"`

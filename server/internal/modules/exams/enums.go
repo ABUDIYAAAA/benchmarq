@@ -91,8 +91,8 @@ const (
 	SectionSubjective SectionType = "subjective"
 )
 
-// autoGradable reports whether scores for the section are known as soon as
+// AutoGradable reports whether scores for the section are known as soon as
 // the candidate submits, which score-gated prerequisites depend on.
-func (t SectionType) autoGradable() bool {
+func (t SectionType) AutoGradable() bool {
 	return t == SectionObjective
 }

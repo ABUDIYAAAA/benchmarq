@@ -9,7 +9,7 @@ import (
 // RegisterGlobalMiddlewares applies all core middlewares to the provided chi router.
 // Middlewares applied:
 // 1. RequestID - generates unique ID per request
-// 2. RealIP - parses real client IP from headers (X-Forwarded-For, X-Real-IP)
+// 2. TrustedRealIP - client IP from X-Forwarded-For / X-Real-IP, only when sent by a trusted proxy
 // 3. CleanPath - cleans duplicate slashes in request paths
 // 4. SecurityHeaders - adds security headers (XSS, HSTS, frame options, etc.)
 // 5. CORS - enables configurable cross-origin resource sharing from .env / AppConfig
@@ -19,7 +19,9 @@ import (
 func RegisterGlobalMiddlewares(r *chi.Mux, appCfg *config.AppConfig) {
 	// 1. Chi standard request tracking & path cleaning
 	r.Use(chimiddleware.RequestID)
-	r.Use(chimiddleware.RealIP)
+	if appCfg != nil && appCfg.Config != nil {
+		r.Use(TrustedRealIP(ParsePrefixes(appCfg.Config.TrustedProxies)))
+	}
 	r.Use(chimiddleware.CleanPath)
 
 	// 2. Security headers

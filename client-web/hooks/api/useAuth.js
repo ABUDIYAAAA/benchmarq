@@ -1,0 +1,150 @@
+"use client";
+
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import authApi from "@/lib/api/auth.api";
+
+export const authKeys = {
+  all: ["auth"],
+  me: () => [...authKeys.all, "me"],
+};
+
+/**
+ * Extracts human-readable error message from backend API response
+ */
+export function getApiErrorMessage(error, fallback = "An unexpected error occurred") {
+  if (!error) return fallback;
+  if (error.response?.data?.message) {
+    return error.response.data.message;
+  }
+  if (error.response?.data?.errors && typeof error.response.data.errors === "object") {
+    const errorList = Object.entries(error.response.data.errors).map(
+      ([field, msg]) => `${field}: ${msg}`
+    );
+    if (errorList.length > 0) return errorList.join(" • ");
+  }
+  return error.message || fallback;
+}
+
+/**
+ * Hook to retrieve current authenticated user session
+ */
+export function useCurrentUser(options = {}) {
+  return useQuery({
+    queryKey: authKeys.me(),
+    queryFn: async () => {
+      const response = await authApi.getMe();
+      return response.data; // UserResponse object
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+    ...options,
+  });
+}
+
+/**
+ * Hook to authenticate administrator credentials
+ */
+export function useLoginMutation(options = {}) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (credentials) => authApi.login(credentials),
+    onSuccess: (data, variables, context) => {
+      queryClient.setQueryData(authKeys.me(), data.data?.user || null);
+      queryClient.invalidateQueries({ queryKey: authKeys.me() });
+      options.onSuccess?.(data, variables, context);
+    },
+    ...options,
+  });
+}
+
+/**
+ * Hook to register new administrator account
+ */
+export function useSignUpMutation(options = {}) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload) => authApi.signup(payload),
+    onSuccess: (data, variables, context) => {
+      queryClient.setQueryData(authKeys.me(), data.data?.user || null);
+      queryClient.invalidateQueries({ queryKey: authKeys.me() });
+      options.onSuccess?.(data, variables, context);
+    },
+    ...options,
+  });
+}
+
+/**
+ * Hook to log out active administrator session
+ */
+export function useLogoutMutation(options = {}) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: () => authApi.logout(),
+    onSuccess: (data, variables, context) => {
+      queryClient.setQueryData(authKeys.me(), null);
+      queryClient.removeQueries({ queryKey: authKeys.all });
+      options.onSuccess?.(data, variables, context);
+    },
+    ...options,
+  });
+}
+
+/**
+ * Hook to request password recovery email
+ */
+export function useForgotPasswordMutation(options = {}) {
+  return useMutation({
+    mutationFn: (payload) => authApi.forgotPassword(payload),
+    ...options,
+  });
+}
+
+/**
+ * Hook to finalize password reset using security token
+ */
+export function useResetPasswordMutation(options = {}) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload) => authApi.resetPassword(payload),
+    onSuccess: (data, variables, context) => {
+      queryClient.setQueryData(authKeys.me(), null);
+      queryClient.removeQueries({ queryKey: authKeys.all });
+      options.onSuccess?.(data, variables, context);
+    },
+    ...options,
+  });
+}
+
+/**
+ * Hook to verify email with token
+ */
+export function useVerifyEmailMutation(options = {}) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: (payload) => authApi.verifyEmail(payload),
+    onSuccess: (data, variables, context) => {
+      queryClient.invalidateQueries({ queryKey: authKeys.me() });
+      options.onSuccess?.(data, variables, context);
+    },
+    ...options,
+  });
+}
+
+/**
+ * Hook to resend email verification token
+ */
+export function useResendVerificationMutation(options = {}) {
+  return useMutation({
+    mutationFn: () => authApi.resendVerification(),
+    ...options,
+  });
+}
+
+// Re-export AuthContext hook for consumer convenience
+export { useAuth } from "@/context/AuthContext";
+

@@ -24,6 +24,8 @@ func TestRolePermissions(t *testing.T) {
 		{RoleInstructor, PermExamDelete, false},
 		{RoleInstructor, PermExamAssign, true},
 		{RoleProctor, PermExamAssign, false},
+		{RoleProctor, PermAttemptsMonitor, true},
+		{RoleCandidate, PermAttemptsMonitor, false},
 		{RoleProctor, PermExamView, false},
 		{RoleCandidate, PermExamView, false},
 		{RoleCandidate, PermOrgView, true},

@@ -22,11 +22,17 @@ func NewHandler(service Service) *Handler {
 	return &Handler{service: service}
 }
 
+// Subroutes are route groups owned by other modules that live under an exam.
+// Nil groups are not mounted.
+type Subroutes struct {
+	Questions   func(chi.Router) // /{examID}/sections/{sectionID}/questions
+	Assignments func(chi.Router) // /{examID}/assignments
+	Attempts    func(chi.Router) // /{examID}/attempts
+}
+
 // RegisterRoutes mounts exam routes under /orgs/{orgID}/exams. The caller
-// must have installed authz.RequireMembership. questionRoutes and
-// assignmentRoutes, if non-nil, are mounted at
-// /{examID}/sections/{sectionID}/questions and /{examID}/assignments.
-func (h *Handler) RegisterRoutes(r chi.Router, questionRoutes, assignmentRoutes func(chi.Router)) {
+// must have installed authz.RequireMembership.
+func (h *Handler) RegisterRoutes(r chi.Router, sub Subroutes) {
 	view := authz.Require(authz.PermExamView)
 	author := authz.Require(authz.PermExamAuthor)
 	publish := authz.Require(authz.PermExamPublish)
@@ -55,13 +61,16 @@ func (h *Handler) RegisterRoutes(r chi.Router, questionRoutes, assignmentRoutes 
 			r.With(view).Get("/{sectionID}", h.GetSection)
 			r.With(author).Patch("/{sectionID}", h.UpdateSection)
 			r.With(author).Delete("/{sectionID}", h.DeleteSection)
-			if questionRoutes != nil {
-				r.Route("/{sectionID}/questions", questionRoutes)
+			if sub.Questions != nil {
+				r.Route("/{sectionID}/questions", sub.Questions)
 			}
 		})
 
-		if assignmentRoutes != nil {
-			r.Route("/assignments", assignmentRoutes)
+		if sub.Assignments != nil {
+			r.Route("/assignments", sub.Assignments)
+		}
+		if sub.Attempts != nil {
+			r.Route("/attempts", sub.Attempts)
 		}
 	})
 }

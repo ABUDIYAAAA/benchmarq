@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	netmail "net/mail"
 	"strings"
 	"time"
 
@@ -144,6 +145,14 @@ func (s *SMTPSender) buildMessage(email *Email) (*mail.Msg, error) {
 	fromName := email.FromName
 	if fromName == "" {
 		fromName = s.cfg.FromName
+	}
+
+	// Normalize if fromAddr was configured in RFC 5322 format (e.g. "Name <addr@domain>")
+	if parsed, err := netmail.ParseAddress(fromAddr); err == nil {
+		if fromName == "" && parsed.Name != "" {
+			fromName = parsed.Name
+		}
+		fromAddr = parsed.Address
 	}
 
 	if fromName != "" {

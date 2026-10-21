@@ -53,19 +53,20 @@ const (
 	PermExamAuthor  // create and edit exams, sections and questions
 	PermExamPublish // publish, unpublish, archive and restore
 	PermExamDelete
-	PermExamAssign // assign candidates to exams and email them invitations
+	PermExamAssign      // assign candidates to exams and email them invitations
+	PermAttemptsMonitor // see running attempts and release device bindings
 )
 
 var rolePermissions = map[Role]Permission{
 	RoleOwner: PermOrgView | PermOrgUpdate | PermOrgDelete |
 		PermMembersView | PermMembersManage |
-		PermExamView | PermExamAuthor | PermExamPublish | PermExamDelete | PermExamAssign,
+		PermExamView | PermExamAuthor | PermExamPublish | PermExamDelete | PermExamAssign | PermAttemptsMonitor,
 	RoleAdmin: PermOrgView | PermOrgUpdate |
 		PermMembersView | PermMembersManage |
-		PermExamView | PermExamAuthor | PermExamPublish | PermExamDelete | PermExamAssign,
+		PermExamView | PermExamAuthor | PermExamPublish | PermExamDelete | PermExamAssign | PermAttemptsMonitor,
 	RoleInstructor: PermOrgView | PermMembersView |
-		PermExamView | PermExamAuthor | PermExamPublish | PermExamAssign,
-	RoleProctor:   PermOrgView | PermMembersView,
+		PermExamView | PermExamAuthor | PermExamPublish | PermExamAssign | PermAttemptsMonitor,
+	RoleProctor:   PermOrgView | PermMembersView | PermAttemptsMonitor,
 	RoleCandidate: PermOrgView,
 }
 

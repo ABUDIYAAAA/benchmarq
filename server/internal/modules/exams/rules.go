@@ -193,7 +193,7 @@ func ValidatePrerequisites(sections []Section) []Issue {
 				is.errorf(path, "prerequisite_unknown", "prerequisite section does not belong to this exam")
 			case seen[p.SectionID]:
 				is.errorf(path, "prerequisite_duplicate", "prerequisite %q is listed more than once", target.Name)
-			case p.MinScorePercent != nil && !target.SectionType.autoGradable():
+			case p.MinScorePercent != nil && !target.SectionType.AutoGradable():
 				is.errorf(path, "prerequisite_score_needs_autograde",
 					"%q is a %s section and is graded manually, so it cannot gate on a minimum score", target.Name, target.SectionType)
 			}
