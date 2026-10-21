@@ -53,17 +53,18 @@ const (
 	PermExamAuthor  // create and edit exams, sections and questions
 	PermExamPublish // publish, unpublish, archive and restore
 	PermExamDelete
+	PermExamAssign // assign candidates to exams and email them invitations
 )
 
 var rolePermissions = map[Role]Permission{
 	RoleOwner: PermOrgView | PermOrgUpdate | PermOrgDelete |
 		PermMembersView | PermMembersManage |
-		PermExamView | PermExamAuthor | PermExamPublish | PermExamDelete,
+		PermExamView | PermExamAuthor | PermExamPublish | PermExamDelete | PermExamAssign,
 	RoleAdmin: PermOrgView | PermOrgUpdate |
 		PermMembersView | PermMembersManage |
-		PermExamView | PermExamAuthor | PermExamPublish | PermExamDelete,
+		PermExamView | PermExamAuthor | PermExamPublish | PermExamDelete | PermExamAssign,
 	RoleInstructor: PermOrgView | PermMembersView |
-		PermExamView | PermExamAuthor | PermExamPublish,
+		PermExamView | PermExamAuthor | PermExamPublish | PermExamAssign,
 	RoleProctor:   PermOrgView | PermMembersView,
 	RoleCandidate: PermOrgView,
 }

@@ -17,12 +17,15 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"os"
+	"net/url"
 	"path/filepath"
 	"runtime"
+	"sync"
 	"testing"
 
 	"github.com/ABUDIYAAAA/benchmarq/internal/config"
 	"github.com/ABUDIYAAAA/benchmarq/internal/database"
+	"github.com/ABUDIYAAAA/benchmarq/internal/mailer"
 	"github.com/ABUDIYAAAA/benchmarq/pkg/utils/logger"
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/postgres"
@@ -92,7 +95,84 @@ func decode[T any](t *testing.T, r apiResponse) T {
 
 type obj = map[string]any
 
+// sentMail is an email the server asked the mailer to send.
+type sentMail struct {
+	Kind string
+	To   string
+	Link string
+}
+
+// outbox records emails instead of sending them. Mailer methods the server
+// does not call fall through to the nil embedded interface and panic.
+type outbox struct {
+	mailer.Mailer
+	mu   sync.Mutex
+	sent []sentMail
+}
+
+func (o *outbox) record(kind, to, link string) error {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	o.sent = append(o.sent, sentMail{Kind: kind, To: to, Link: link})
+	return nil
+}
+
+func (o *outbox) SendWelcomeEmail(to, name, verifyURL string) error {
+	return o.record("welcome", to, verifyURL)
+}
+
+func (o *outbox) SendVerificationEmail(to, name, verifyURL string, expiresHours int) error {
+	return o.record("verify", to, verifyURL)
+}
+
+func (o *outbox) SendOrgInviteEmail(to, orgName, inviterName, role, acceptURL string, expiresDays int) error {
+	return o.record("org_invite", to, acceptURL)
+}
+
+func (o *outbox) SendExamInviteEmail(to, studentName, examTitle, examURL, startTime, duration, accessCode string) error {
+	return o.record("exam_invite", to, examURL)
+}
+
+// count returns how many emails of kind were sent to to.
+func (o *outbox) count(kind, to string) int {
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	n := 0
+	for _, m := range o.sent {
+		if m.Kind == kind && m.To == to {
+			n++
+		}
+	}
+	return n
+}
+
+// token returns the token in the newest email of kind sent to to.
+func (o *outbox) token(t *testing.T, kind, to string) string {
+	t.Helper()
+	o.mu.Lock()
+	defer o.mu.Unlock()
+	for i := len(o.sent) - 1; i >= 0; i-- {
+		if m := o.sent[i]; m.Kind == kind && m.To == to {
+			u, err := url.Parse(m.Link)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if tok := u.Query().Get("token"); tok != "" {
+				return tok
+			}
+			t.Fatalf("%s email to %s has no token: %s", kind, to, m.Link)
+		}
+	}
+	t.Fatalf("no %s email sent to %s", kind, to)
+	return ""
+}
+
 func setupServer(t *testing.T) (*httptest.Server, *pgxpool.Pool) {
+	srv, pool, _ := setupServerWithMail(t)
+	return srv, pool
+}
+
+func setupServerWithMail(t *testing.T) (*httptest.Server, *pgxpool.Pool, *outbox) {
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	if dsn == "" {
 		t.Skip("TEST_DATABASE_URL not set; skipping integration test")
@@ -128,9 +208,10 @@ func setupServer(t *testing.T) (*httptest.Server, *pgxpool.Pool) {
 		AllowedOrigins:         []string{"http://localhost:3000"},
 		Environment:            "test",
 	}
-	srv := httptest.NewServer(NewRouter(config.NewAppConfig(cfg, logger.NewErrorLogger(), nil, pool)))
+	mail := &outbox{}
+	srv := httptest.NewServer(NewRouter(config.NewAppConfig(cfg, logger.NewErrorLogger(), mail, pool)))
 	t.Cleanup(srv.Close)
-	return srv, pool
+	return srv, pool, mail
 }
 
 func signUp(t *testing.T, srv *httptest.Server, email string) (*apiClient, string) {
@@ -484,7 +565,7 @@ func TestMembershipRules(t *testing.T) {
 	admin.must(http.StatusNotFound, "GET", "/orgs/"+org.ID, nil)
 }
 
-func TestCodingQuestionsAndIsolation(t *testing.T) {
+func TestQuestionTypesAndIsolation(t *testing.T) {
 	srv, _ := setupServer(t)
 
 	alice, _ := signUp(t, srv, "alice2@benchmarq.io")
@@ -500,40 +581,25 @@ func TestCodingQuestionsAndIsolation(t *testing.T) {
 	examsPath := "/orgs/" + orgA.ID + "/exams"
 	exam := decode[examDetail](t, alice.must(http.StatusCreated, "POST", examsPath, obj{"title": "DSA Round"}))
 	sectionsPath := examsPath + "/" + exam.Exam.ID + "/sections"
-	coding := decode[sectionView](t, alice.must(http.StatusCreated, "POST", sectionsPath, obj{"name": "Coding", "section_type": "coding"}))
 	writing := decode[sectionView](t, alice.must(http.StatusCreated, "POST", sectionsPath, obj{"name": "Short", "section_type": "subjective"}))
-	qPath := sectionsPath + "/" + coding.ID + "/questions"
-
-	created := decode[struct {
-		ID     string `json:"id"`
-		Coding struct {
-			TimeLimitMs int `json:"time_limit_ms"`
-			TestCases   []struct {
-				IsHidden bool    `json:"is_hidden"`
-				Points   float64 `json:"points"`
-			} `json:"test_cases"`
-		} `json:"coding"`
-	}](t, alice.must(http.StatusCreated, "POST", qPath, obj{
-		"type": "coding", "prompt": "Reverse a linked list", "points": 20,
-		"coding": obj{
-			"starter_code": "func reverse(head *Node) *Node {}",
-			"test_cases": []obj{
-				{"input": "1 2 3", "expected_output": "3 2 1", "is_hidden": false},
-				{"input": "", "expected_output": "", "points": 2},
-			},
-		},
-	}))
-	if created.Coding.TimeLimitMs != 2000 || len(created.Coding.TestCases) != 2 ||
-		created.Coding.TestCases[0].IsHidden || !created.Coding.TestCases[1].IsHidden || created.Coding.TestCases[1].Points != 2 {
-		t.Fatalf("coding question not persisted as expected: %+v", created.Coding)
-	}
-	alice.must(http.StatusUnprocessableEntity, "POST", qPath, obj{
-		"type": "coding", "prompt": "x", "points": 1,
-		"coding": obj{"default_language_id": "00000000-0000-0000-0000-000000000001", "test_cases": []obj{{"input": "1", "expected_output": "1"}}},
-	})
-	alice.must(http.StatusUnprocessableEntity, "POST", qPath, obj{"type": "coding", "prompt": "x", "points": 1, "coding": obj{"test_cases": []obj{}}})
-
 	shortPath := sectionsPath + "/" + writing.ID + "/questions"
+
+	// Coding sections and questions, and essay file attachments, are gone.
+	alice.must(http.StatusUnprocessableEntity, "POST", sectionsPath, obj{"name": "Coding", "section_type": "coding"})
+	alice.must(http.StatusUnprocessableEntity, "POST", shortPath, obj{
+		"type": "coding", "prompt": "Reverse a linked list", "points": 20, "coding": obj{"test_cases": []obj{{"input": "1", "expected_output": "1"}}},
+	})
+	alice.must(http.StatusUnprocessableEntity, "POST", shortPath, obj{
+		"type": "essay", "prompt": "Upload your design", "points": 5, "essay": obj{"allow_file_attachments": true},
+	})
+	essay := decode[struct {
+		Essay map[string]any `json:"essay"`
+	}](t, alice.must(http.StatusCreated, "POST", shortPath, obj{"type": "essay", "prompt": "Discuss", "points": 5}))
+	if _, ok := essay.Essay["allow_file_attachments"]; ok || essay.Essay["allow_rich_text"] != true {
+		t.Fatalf("unexpected essay spec %v", essay.Essay)
+	}
+	alice.must(http.StatusOK, "DELETE", shortPath+"/"+decode[[]question](t, alice.must(http.StatusOK, "GET", shortPath, nil))[0].ID, nil)
+
 	var shortIDs []string
 	for i := range 3 {
 		q := decode[question](t, alice.must(http.StatusCreated, "POST", shortPath, obj{
@@ -553,9 +619,10 @@ func TestCodingQuestionsAndIsolation(t *testing.T) {
 	mallory.must(http.StatusNotFound, "GET", examsPath+"/"+exam.Exam.ID, nil)
 	foreign := "/orgs/" + orgM.ID + "/exams/" + exam.Exam.ID
 	mallory.must(http.StatusNotFound, "GET", foreign, nil)
-	mallory.must(http.StatusNotFound, "GET", foreign+"/sections/"+coding.ID+"/questions", nil)
-	mallory.must(http.StatusNotFound, "POST", foreign+"/sections/"+coding.ID+"/questions", obj{
-		"type": "coding", "prompt": "pwn", "points": 1, "coding": obj{"test_cases": []obj{{"input": "", "expected_output": ""}}},
+	mallory.must(http.StatusNotFound, "GET", foreign+"/sections/"+writing.ID+"/questions", nil)
+	mallory.must(http.StatusNotFound, "POST", foreign+"/sections/"+writing.ID+"/questions", obj{
+		"type": "short_answer", "prompt": "pwn", "points": 1,
 	})
+	mallory.must(http.StatusNotFound, "GET", foreign+"/assignments", nil)
 	mallory.must(http.StatusNotFound, "DELETE", foreign, nil)
 }

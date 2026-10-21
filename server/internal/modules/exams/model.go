@@ -33,7 +33,6 @@ type ExamConfig struct {
 	Scoring       ScoringConfig       `json:"scoring"`
 	Proctoring    ProctoringConfig    `json:"proctoring"`
 	Experience    ExperienceConfig    `json:"experience"`
-	Coding        CodingConfig        `json:"coding"`
 	Results       ResultsConfig       `json:"results"`
 	Attempts      AttemptPolicy       `json:"attempts"`
 
@@ -116,17 +115,6 @@ type ExperienceConfig struct {
 	ScratchpadEnabled             bool           `json:"scratchpad_enabled" db:"scratchpad_enabled"`
 	FormulaSheetURL               *string        `json:"formula_sheet_url" db:"formula_sheet_url" validate:"omitempty,http_url,max=2048"`
 	DarkModeAllowed               bool           `json:"dark_mode_allowed" db:"dark_mode_allowed"`
-}
-
-type CodingConfig struct {
-	// AllowedLanguageIDs restricts the languages candidates may use; empty means all.
-	AllowedLanguageIDs        []uuid.UUID `json:"allowed_language_ids" db:"allowed_language_ids" validate:"omitempty,max=50,unique"`
-	CodeRunLimitPerQuestion   int         `json:"code_run_limit_per_question" db:"code_run_limit_per_question" validate:"gte=0,lte=1000"`
-	EditorAutocompleteEnabled bool        `json:"editor_autocomplete_enabled" db:"editor_autocomplete_enabled"`
-	AllowCustomTestInput      bool        `json:"allow_custom_test_input" db:"allow_custom_test_input"`
-	ShowFailedTestcaseDiff    bool        `json:"show_failed_testcase_diff" db:"show_failed_testcase_diff"`
-	DefaultTimeoutMs          int         `json:"default_timeout_ms" db:"default_timeout_ms" validate:"gte=100,lte=60000"`
-	DefaultMemoryLimitMb      int         `json:"default_memory_limit_mb" db:"default_memory_limit_mb" validate:"gte=16,lte=4096"`
 }
 
 type ResultsConfig struct {

@@ -23,9 +23,10 @@ func NewHandler(service Service) *Handler {
 }
 
 // RegisterRoutes mounts exam routes under /orgs/{orgID}/exams. The caller
-// must have installed authz.RequireMembership. questionRoutes, if non-nil, is
-// mounted at /{examID}/sections/{sectionID}/questions.
-func (h *Handler) RegisterRoutes(r chi.Router, questionRoutes func(chi.Router)) {
+// must have installed authz.RequireMembership. questionRoutes and
+// assignmentRoutes, if non-nil, are mounted at
+// /{examID}/sections/{sectionID}/questions and /{examID}/assignments.
+func (h *Handler) RegisterRoutes(r chi.Router, questionRoutes, assignmentRoutes func(chi.Router)) {
 	view := authz.Require(authz.PermExamView)
 	author := authz.Require(authz.PermExamAuthor)
 	publish := authz.Require(authz.PermExamPublish)
@@ -58,6 +59,10 @@ func (h *Handler) RegisterRoutes(r chi.Router, questionRoutes func(chi.Router)) 
 				r.Route("/{sectionID}/questions", questionRoutes)
 			}
 		})
+
+		if assignmentRoutes != nil {
+			r.Route("/assignments", assignmentRoutes)
+		}
 	})
 }
 

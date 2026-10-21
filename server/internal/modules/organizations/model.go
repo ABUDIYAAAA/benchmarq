@@ -34,3 +34,30 @@ type Member struct {
 	Role      authz.Role `json:"role"`
 	JoinedAt  time.Time  `json:"joined_at"`
 }
+
+type InvitationStatus string
+
+const (
+	InvitationPending  InvitationStatus = "pending"
+	InvitationAccepted InvitationStatus = "accepted"
+	InvitationExpired  InvitationStatus = "expired"
+	InvitationRevoked  InvitationStatus = "revoked"
+)
+
+// Invitation asks someone, by email, to join an organization with a role.
+// A pending invitation past its expiry is reported as expired.
+type Invitation struct {
+	ID              uuid.UUID        `json:"id"`
+	OrgID           uuid.UUID        `json:"org_id"`
+	Email           string           `json:"email"`
+	Role            authz.Role       `json:"role"`
+	Status          InvitationStatus `json:"status"`
+	InvitedByUserID *uuid.UUID       `json:"invited_by_user_id,omitempty"`
+	ExpiresAt       time.Time        `json:"expires_at"`
+	AcceptedAt      *time.Time       `json:"accepted_at,omitempty"`
+	RevokedAt       *time.Time       `json:"revoked_at,omitempty"`
+	CreatedAt       time.Time        `json:"created_at"`
+	UpdatedAt       time.Time        `json:"updated_at"`
+
+	TokenHash string `json:"-"`
+}

@@ -63,6 +63,8 @@ type Mailer interface {
 	// Convenience helper methods
 	SendWelcomeEmail(to string, name string, verifyURL string) error
 	SendPasswordResetEmail(to string, name string, resetURL string, expiresMinutes int) error
+	SendVerificationEmail(to string, name string, verifyURL string, expiresHours int) error
+	SendOrgInviteEmail(to string, orgName string, inviterName string, role string, acceptURL string, expiresDays int) error
 	SendExamInviteEmail(to string, studentName string, examTitle string, examURL string, startTime string, duration string, accessCode string) error
 	SendExamResultEmail(to string, studentName string, examTitle string, score float64, totalMarks float64, percentage float64, resultURL string) error
 }

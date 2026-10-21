@@ -177,6 +177,36 @@ func (m *Manager) SendPasswordResetEmail(to string, name string, resetURL string
 	})
 }
 
+// SendVerificationEmail queues an email address verification link.
+func (m *Manager) SendVerificationEmail(to string, name string, verifyURL string, expiresHours int) error {
+	return m.Enqueue(&Email{
+		To:           []string{to},
+		Subject:      "Verify Your Email - Benchmarq",
+		TemplateName: "verify_email.html",
+		TemplateData: map[string]any{
+			"Name":         name,
+			"VerifyURL":    verifyURL,
+			"ExpiresHours": expiresHours,
+		},
+	})
+}
+
+// SendOrgInviteEmail queues an invitation to join an organization.
+func (m *Manager) SendOrgInviteEmail(to string, orgName string, inviterName string, role string, acceptURL string, expiresDays int) error {
+	return m.Enqueue(&Email{
+		To:           []string{to},
+		Subject:      fmt.Sprintf("You're invited to join %s on Benchmarq", orgName),
+		TemplateName: "org_invite.html",
+		TemplateData: map[string]any{
+			"OrgName":     orgName,
+			"InviterName": inviterName,
+			"Role":        role,
+			"AcceptURL":   acceptURL,
+			"ExpiresDays": expiresDays,
+		},
+	})
+}
+
 // SendExamInviteEmail queues an exam invitation email to a candidate.
 func (m *Manager) SendExamInviteEmail(to string, studentName string, examTitle string, examURL string, startTime string, duration string, accessCode string) error {
 	return m.Enqueue(&Email{

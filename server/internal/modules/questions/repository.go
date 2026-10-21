@@ -15,7 +15,6 @@ import (
 var (
 	ErrSectionNotFound  = errors.New("section not found")
 	ErrQuestionNotFound = errors.New("question not found")
-	ErrUnknownLanguage  = errors.New("coding language not found")
 )
 
 // SectionRef is the minimal context needed to author questions in a section.
@@ -206,47 +205,16 @@ func (r *postgresRepository) load(ctx context.Context, query string, args ...any
 			})
 		})
 	batch.Queue(`
-		SELECT question_id, rubric_guidelines, min_words, max_words, max_length, allow_rich_text, allow_file_attachments
+		SELECT question_id, rubric_guidelines, min_words, max_words, max_length, allow_rich_text
 		FROM essay_questions WHERE question_id = ANY($1)
 	`, ids).Query(func(rows pgx.Rows) error {
 		return forEach(rows, func() error {
 			var qid uuid.UUID
 			var s EssaySpec
-			if err := rows.Scan(&qid, &s.RubricGuidelines, &s.MinWords, &s.MaxWords, &s.MaxLength, &s.AllowRichText, &s.AllowFileAttachments); err != nil {
+			if err := rows.Scan(&qid, &s.RubricGuidelines, &s.MinWords, &s.MaxWords, &s.MaxLength, &s.AllowRichText); err != nil {
 				return err
 			}
 			byID[qid].Essay = &s
-			return nil
-		})
-	})
-	batch.Queue(`
-		SELECT question_id, default_language_id, starter_code, solution_code, driver_code, time_limit_ms, memory_limit_mb
-		FROM coding_questions WHERE question_id = ANY($1)
-	`, ids).Query(func(rows pgx.Rows) error {
-		return forEach(rows, func() error {
-			var qid uuid.UUID
-			s := CodingSpec{TestCases: []TestCase{}}
-			if err := rows.Scan(&qid, &s.DefaultLanguageID, &s.StarterCode, &s.SolutionCode, &s.DriverCode, &s.TimeLimitMs, &s.MemoryLimitMb); err != nil {
-				return err
-			}
-			byID[qid].Coding = &s
-			return nil
-		})
-	})
-	batch.Queue(`
-		SELECT question_id, id, input, expected_output, points::float8, position, is_hidden, time_limit_override_ms
-		FROM coding_test_cases WHERE question_id = ANY($1) ORDER BY question_id, position
-	`, ids).Query(func(rows pgx.Rows) error {
-		return forEach(rows, func() error {
-			var qid uuid.UUID
-			var tc TestCase
-			if err := rows.Scan(&qid, &tc.ID, &tc.Input, &tc.ExpectedOutput, &tc.Points, &tc.Position, &tc.IsHidden, &tc.TimeLimitOverrideMs); err != nil {
-				return err
-			}
-			// coding_questions is queued first, so the spec already exists.
-			if c := byID[qid].Coding; c != nil {
-				c.TestCases = append(c.TestCases, tc)
-			}
 			return nil
 		})
 	})
@@ -314,7 +282,6 @@ func (r *postgresRepository) Replace(ctx context.Context, q *Question) error {
 		"blank_fill_questions",
 		"short_answer_questions",
 		"essay_questions",
-		"coding_questions", // cascades to coding_test_cases
 		"question_options",
 	} {
 		batch.Queue(`DELETE FROM `+table+` WHERE question_id = $1`, q.ID)
@@ -371,31 +338,15 @@ func (r *postgresRepository) insertDetails(ctx context.Context, q *Question) err
 	case TypeEssay:
 		e := q.Essay
 		batch.Queue(`
-			INSERT INTO essay_questions (question_id, rubric_guidelines, min_words, max_words, max_length, allow_rich_text, allow_file_attachments)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
-		`, q.ID, e.RubricGuidelines, e.MinWords, e.MaxWords, e.MaxLength, e.AllowRichText, e.AllowFileAttachments)
-
-	case TypeCoding:
-		c := q.Coding
-		batch.Queue(`
-			INSERT INTO coding_questions (question_id, default_language_id, starter_code, solution_code, driver_code, time_limit_ms, memory_limit_mb)
-			VALUES ($1, $2, $3, $4, $5, $6, $7)
-		`, q.ID, c.DefaultLanguageID, c.StarterCode, c.SolutionCode, c.DriverCode, c.TimeLimitMs, c.MemoryLimitMb)
-		for _, tc := range c.TestCases {
-			batch.Queue(`
-				INSERT INTO coding_test_cases (id, question_id, input, expected_output, points, position, is_hidden, time_limit_override_ms)
-				VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-			`, tc.ID, q.ID, tc.Input, tc.ExpectedOutput, tc.Points, tc.Position, tc.IsHidden, tc.TimeLimitOverrideMs)
-		}
+			INSERT INTO essay_questions (question_id, rubric_guidelines, min_words, max_words, max_length, allow_rich_text)
+			VALUES ($1, $2, $3, $4, $5, $6)
+		`, q.ID, e.RubricGuidelines, e.MinWords, e.MaxWords, e.MaxLength, e.AllowRichText)
 	}
 
 	if batch.Len() == 0 {
 		return nil
 	}
 	if err := database.Conn(ctx, r.db).SendBatch(ctx, batch).Close(); err != nil {
-		if database.IsForeignKeyViolation(err, "coding_questions_default_language_id_fkey") {
-			return ErrUnknownLanguage
-		}
 		return fmt.Errorf("insert question details: %w", err)
 	}
 	return nil

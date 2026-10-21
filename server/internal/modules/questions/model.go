@@ -14,7 +14,6 @@ const (
 	TypeTrueFalse      QuestionType = "true_false"
 	TypeMultiSelect    QuestionType = "multi_select"
 	TypeBlankFill      QuestionType = "blank_fill"
-	TypeCoding         QuestionType = "coding"
 	TypeShortAnswer    QuestionType = "short_answer"
 	TypeEssay          QuestionType = "essay"
 )
@@ -26,7 +25,6 @@ var family = map[QuestionType]exams.SectionType{
 	TypeTrueFalse:      exams.SectionObjective,
 	TypeMultiSelect:    exams.SectionObjective,
 	TypeBlankFill:      exams.SectionObjective,
-	TypeCoding:         exams.SectionCoding,
 	TypeShortAnswer:    exams.SectionSubjective,
 	TypeEssay:          exams.SectionSubjective,
 }
@@ -54,7 +52,6 @@ type Question struct {
 	BlankFill   *BlankFillSpec   `json:"blank_fill,omitempty"`
 	ShortAnswer *ShortAnswerSpec `json:"short_answer,omitempty"`
 	Essay       *EssaySpec       `json:"essay,omitempty"`
-	Coding      *CodingSpec      `json:"coding,omitempty"`
 
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -95,30 +92,9 @@ type ShortAnswerSpec struct {
 }
 
 type EssaySpec struct {
-	RubricGuidelines     *string `json:"rubric_guidelines,omitempty"`
-	MinWords             *int    `json:"min_words,omitempty"`
-	MaxWords             *int    `json:"max_words,omitempty"`
-	MaxLength            *int    `json:"max_length,omitempty"`
-	AllowRichText        bool    `json:"allow_rich_text"`
-	AllowFileAttachments bool    `json:"allow_file_attachments"`
-}
-
-type CodingSpec struct {
-	DefaultLanguageID *uuid.UUID `json:"default_language_id,omitempty"`
-	StarterCode       *string    `json:"starter_code,omitempty"`
-	SolutionCode      *string    `json:"solution_code,omitempty"`
-	DriverCode        *string    `json:"driver_code,omitempty"`
-	TimeLimitMs       int        `json:"time_limit_ms"`
-	MemoryLimitMb     int        `json:"memory_limit_mb"`
-	TestCases         []TestCase `json:"test_cases"`
-}
-
-type TestCase struct {
-	ID                  uuid.UUID `json:"id"`
-	Input               string    `json:"input"`
-	ExpectedOutput      string    `json:"expected_output"`
-	Points              float64   `json:"points"`
-	Position            int       `json:"position"`
-	IsHidden            bool      `json:"is_hidden"`
-	TimeLimitOverrideMs *int      `json:"time_limit_override_ms,omitempty"`
+	RubricGuidelines *string `json:"rubric_guidelines,omitempty"`
+	MinWords         *int    `json:"min_words,omitempty"`
+	MaxWords         *int    `json:"max_words,omitempty"`
+	MaxLength        *int    `json:"max_length,omitempty"`
+	AllowRichText    bool    `json:"allow_rich_text"`
 }

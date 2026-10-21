@@ -30,7 +30,6 @@ func defaultConfig() *ExamConfig {
 		},
 		Proctoring: ProctoringConfig{ProctoringMode: ProctoringDisabled, WebcamSnapshotIntervalSeconds: 60, TrackTabFocus: true},
 		Experience: ExperienceConfig{CalculatorType: "none", TimerWarningThresholdsMinutes: []int32{15, 5, 1}},
-		Coding:     CodingConfig{DefaultTimeoutMs: 2000, DefaultMemoryLimitMb: 256},
 		Results:    ResultsConfig{ResultsReleaseMode: "instant", SolutionVisibility: "after_submission"},
 		Attempts:   AttemptPolicy{MaxAttempts: 1, RetakeScoreRule: "best_attempt"},
 	}

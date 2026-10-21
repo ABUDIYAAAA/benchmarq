@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/ABUDIYAAAA/benchmarq/internal/authz"
@@ -17,6 +18,9 @@ var (
 	ErrOrganizationNotFound = errors.New("organization not found")
 	ErrSlugTaken            = errors.New("organization slug is already taken")
 	ErrMemberNotFound       = errors.New("member not found")
+	ErrUserNotFound         = errors.New("user not found")
+	ErrInvitationNotFound   = errors.New("invitation not found")
+	ErrInvitationPending    = errors.New("a pending invitation already exists for this email")
 )
 
 type Repository interface {
@@ -37,6 +41,19 @@ type Repository interface {
 	CountOwners(ctx context.Context, orgID uuid.UUID) (int, error)
 	UpdateMemberRole(ctx context.Context, orgID, userID uuid.UUID, role authz.Role) error
 	RemoveMember(ctx context.Context, orgID, userID uuid.UUID) error
+	IsMemberEmail(ctx context.Context, orgID uuid.UUID, email string) (bool, error)
+	GetUserEmail(ctx context.Context, userID uuid.UUID) (string, error)
+
+	// CreateInvitation inserts a pending invitation. A pending invitation for
+	// the same email that has already expired is marked expired first.
+	CreateInvitation(ctx context.Context, inv *Invitation) error
+	GetInvitation(ctx context.Context, orgID, invitationID uuid.UUID) (*Invitation, error)
+	// LockInvitationByToken loads an invitation by token hash with a row lock.
+	LockInvitationByToken(ctx context.Context, tokenHash string) (*Invitation, error)
+	ListInvitations(ctx context.Context, orgID uuid.UUID, f InvitationFilter, p pagination.Params) ([]Invitation, error)
+	// ReissueInvitation replaces the token and expiry of a pending invitation.
+	ReissueInvitation(ctx context.Context, inv *Invitation) error
+	SetInvitationStatus(ctx context.Context, invitationID uuid.UUID, status InvitationStatus) error
 }
 
 type postgresRepository struct {
@@ -283,6 +300,171 @@ func (r *postgresRepository) RemoveMember(ctx context.Context, orgID, userID uui
 	}
 	if tag.RowsAffected() == 0 {
 		return ErrMemberNotFound
+	}
+	return nil
+}
+
+func (r *postgresRepository) IsMemberEmail(ctx context.Context, orgID uuid.UUID, email string) (bool, error) {
+	var exists bool
+	err := database.Conn(ctx, r.db).QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1 FROM organization_members m
+			JOIN users u ON u.id = m.user_id AND u.deleted_at IS NULL
+			WHERE m.org_id = $1 AND u.email = $2
+		)`, orgID, email).Scan(&exists)
+	if err != nil {
+		return false, fmt.Errorf("check member email: %w", err)
+	}
+	return exists, nil
+}
+
+func (r *postgresRepository) GetUserEmail(ctx context.Context, userID uuid.UUID) (string, error) {
+	var email string
+	err := database.Conn(ctx, r.db).QueryRow(ctx,
+		`SELECT email FROM users WHERE id = $1 AND deleted_at IS NULL`, userID).Scan(&email)
+	if err != nil {
+		if database.IsNoRows(err) {
+			return "", ErrUserNotFound
+		}
+		return "", fmt.Errorf("select user email: %w", err)
+	}
+	return email, nil
+}
+
+// invitationSelect reports pending invitations past their expiry as expired.
+const invitationSelect = `
+	SELECT id, org_id, email,
+	       role,
+	       CASE WHEN status = 'pending' AND expires_at <= now() THEN 'expired' ELSE status::text END,
+	       invited_by_user_id, expires_at, accepted_at, revoked_at, created_at, updated_at, token_hash
+	FROM organization_invitations
+`
+
+func scanInvitation(row interface{ Scan(...any) error }, inv *Invitation) error {
+	return row.Scan(&inv.ID, &inv.OrgID, &inv.Email, &inv.Role, &inv.Status, &inv.InvitedByUserID,
+		&inv.ExpiresAt, &inv.AcceptedAt, &inv.RevokedAt, &inv.CreatedAt, &inv.UpdatedAt, &inv.TokenHash)
+}
+
+func (r *postgresRepository) CreateInvitation(ctx context.Context, inv *Invitation) error {
+	if inv.ID == uuid.Nil {
+		inv.ID = uuid.New()
+	}
+	conn := database.Conn(ctx, r.db)
+	_, err := conn.Exec(ctx, `
+		UPDATE organization_invitations
+		SET status = 'expired', updated_at = now()
+		WHERE org_id = $1 AND email = $2 AND status = 'pending' AND expires_at <= now()
+	`, inv.OrgID, inv.Email)
+	if err != nil {
+		return fmt.Errorf("expire stale invitation: %w", err)
+	}
+
+	err = conn.QueryRow(ctx, `
+		INSERT INTO organization_invitations (id, org_id, email, role, token_hash, invited_by_user_id, status, expires_at)
+		VALUES ($1, $2, $3, $4, $5, $6, 'pending', $7)
+		RETURNING status, created_at, updated_at
+	`, inv.ID, inv.OrgID, inv.Email, inv.Role, inv.TokenHash, inv.InvitedByUserID, inv.ExpiresAt,
+	).Scan(&inv.Status, &inv.CreatedAt, &inv.UpdatedAt)
+	if err != nil {
+		if database.IsUniqueViolation(err, "organization_invitations_one_pending") {
+			return ErrInvitationPending
+		}
+		return fmt.Errorf("insert invitation: %w", err)
+	}
+	return nil
+}
+
+func (r *postgresRepository) GetInvitation(ctx context.Context, orgID, invitationID uuid.UUID) (*Invitation, error) {
+	var inv Invitation
+	err := scanInvitation(database.Conn(ctx, r.db).QueryRow(ctx,
+		invitationSelect+` WHERE org_id = $1 AND id = $2`, orgID, invitationID), &inv)
+	if err != nil {
+		if database.IsNoRows(err) {
+			return nil, ErrInvitationNotFound
+		}
+		return nil, fmt.Errorf("select invitation: %w", err)
+	}
+	return &inv, nil
+}
+
+func (r *postgresRepository) LockInvitationByToken(ctx context.Context, tokenHash string) (*Invitation, error) {
+	var inv Invitation
+	err := scanInvitation(database.Conn(ctx, r.db).QueryRow(ctx,
+		invitationSelect+` WHERE token_hash = $1 FOR UPDATE`, tokenHash), &inv)
+	if err != nil {
+		if database.IsNoRows(err) {
+			return nil, ErrInvitationNotFound
+		}
+		return nil, fmt.Errorf("select invitation by token: %w", err)
+	}
+	return &inv, nil
+}
+
+func (r *postgresRepository) ListInvitations(ctx context.Context, orgID uuid.UUID, f InvitationFilter, p pagination.Params) ([]Invitation, error) {
+	args := []any{orgID, p.Limit + 1}
+	where := []string{"org_id = $1"}
+	switch f.Status {
+	case InvitationPending:
+		where = append(where, "status = 'pending' AND expires_at > now()")
+	case InvitationExpired:
+		where = append(where, "(status = 'expired' OR (status = 'pending' AND expires_at <= now()))")
+	case InvitationAccepted, InvitationRevoked:
+		args = append(args, f.Status)
+		where = append(where, fmt.Sprintf("status = $%d", len(args)))
+	}
+	if p.After != nil {
+		args = append(args, p.After.Time, p.After.ID)
+		where = append(where, fmt.Sprintf("(created_at, id) < ($%d, $%d)", len(args)-1, len(args)))
+	}
+	query := invitationSelect + ` WHERE ` + strings.Join(where, " AND ") + `
+		ORDER BY created_at DESC, id DESC
+		LIMIT $2`
+
+	rows, err := database.Conn(ctx, r.db).Query(ctx, query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("list invitations: %w", err)
+	}
+	defer rows.Close()
+
+	var out []Invitation
+	for rows.Next() {
+		var inv Invitation
+		if err := scanInvitation(rows, &inv); err != nil {
+			return nil, fmt.Errorf("scan invitation: %w", err)
+		}
+		out = append(out, inv)
+	}
+	return out, rows.Err()
+}
+
+func (r *postgresRepository) ReissueInvitation(ctx context.Context, inv *Invitation) error {
+	err := database.Conn(ctx, r.db).QueryRow(ctx, `
+		UPDATE organization_invitations
+		SET token_hash = $2, expires_at = $3, invited_by_user_id = $4, updated_at = now()
+		WHERE id = $1 AND status = 'pending'
+		RETURNING updated_at
+	`, inv.ID, inv.TokenHash, inv.ExpiresAt, inv.InvitedByUserID).Scan(&inv.UpdatedAt)
+	if err != nil {
+		if database.IsNoRows(err) {
+			return ErrInvitationNotFound
+		}
+		return fmt.Errorf("reissue invitation: %w", err)
+	}
+	inv.Status = InvitationPending
+	return nil
+}
+
+func (r *postgresRepository) SetInvitationStatus(ctx context.Context, invitationID uuid.UUID, status InvitationStatus) error {
+	_, err := database.Conn(ctx, r.db).Exec(ctx, `
+		UPDATE organization_invitations
+		SET status = $2::invitation_status,
+		    accepted_at = CASE WHEN $2::invitation_status = 'accepted' THEN now() ELSE accepted_at END,
+		    revoked_at = CASE WHEN $2::invitation_status = 'revoked' THEN now() ELSE revoked_at END,
+		    updated_at = now()
+		WHERE id = $1
+	`, invitationID, status)
+	if err != nil {
+		return fmt.Errorf("update invitation status: %w", err)
 	}
 	return nil
 }

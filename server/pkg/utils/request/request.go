@@ -14,8 +14,8 @@ import (
 	"github.com/google/uuid"
 )
 
-// MaxBodyBytes caps JSON request bodies. Question prompts and coding test
-// cases can be large, so this is more generous than a typical API.
+// MaxBodyBytes caps JSON request bodies. Question prompts and rubrics can be
+// large, so this is more generous than a typical API.
 const MaxBodyBytes = 2 << 20 // 2 MiB
 
 // URLParamUUID parses a chi path parameter as a UUID.

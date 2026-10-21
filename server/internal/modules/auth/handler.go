@@ -35,11 +35,13 @@ func (h *Handler) RegisterRoutes(r chi.Router, authMiddleware func(http.Handler)
 		r.Post("/logout", h.LogoutHandler)
 		r.Post("/forgot-password", h.ForgotPasswordHandler)
 		r.Post("/reset-password", h.ResetPasswordHandler)
+		r.Post("/verify-email", h.VerifyEmailHandler)
 
 		// Protected endpoints
 		r.Group(func(r chi.Router) {
 			r.Use(authMiddleware)
 			r.Get("/me", h.GetMeHandler)
+			r.Post("/resend-verification", h.ResendVerificationHandler)
 		})
 	})
 }
@@ -181,6 +183,51 @@ func (h *Handler) ResetPasswordHandler(w http.ResponseWriter, r *http.Request) {
 	cookies.ClearAuthCookies(w, h.cfg)
 
 	response.Success(w, http.StatusOK, "Password has been successfully reset. Please log in with your new password.", nil)
+}
+
+// VerifyEmailHandler marks the account owning a verification token as verified.
+func (h *Handler) VerifyEmailHandler(w http.ResponseWriter, r *http.Request) {
+	var req VerifyEmailRequest
+	if errs, err := validator.DecodeAndValidate(r, &req); err != nil {
+		response.ValidationError(w, errs)
+		return
+	}
+
+	if err := h.service.VerifyEmail(r.Context(), &req); err != nil {
+		if errors.Is(err, ErrVerificationInvalid) {
+			response.Error(w, http.StatusBadRequest, "Invalid or expired verification link")
+			return
+		}
+		response.Error(w, http.StatusInternalServerError, "Failed to verify email")
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Email verified successfully", nil)
+}
+
+// ResendVerificationHandler emails the current user a new verification link.
+func (h *Handler) ResendVerificationHandler(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "Unauthorized")
+		return
+	}
+
+	if err := h.service.ResendVerification(r.Context(), userID); err != nil {
+		switch {
+		case errors.Is(err, ErrEmailAlreadyVerified):
+			response.Error(w, http.StatusConflict, "Email is already verified")
+		case errors.Is(err, ErrVerificationRateLimited):
+			response.Error(w, http.StatusTooManyRequests, "A verification email was sent recently. Please wait a minute before requesting another.")
+		case errors.Is(err, ErrUserNotFound):
+			response.Error(w, http.StatusNotFound, "User not found")
+		default:
+			response.Error(w, http.StatusInternalServerError, "Failed to send verification email")
+		}
+		return
+	}
+
+	response.Success(w, http.StatusOK, "Verification email sent", nil)
 }
 
 // GetMeHandler returns current authenticated user information.

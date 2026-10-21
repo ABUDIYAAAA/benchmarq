@@ -28,6 +28,10 @@ type Config struct {
 	// Password Reset Configuration
 	ResetPasswordExpiryMinutes int `env:"RESET_PASSWORD_EXPIRY_MINUTES" envDefault:"15"`
 
+	// Email Verification & Invitation Configuration
+	EmailVerificationExpiryHours int `env:"EMAIL_VERIFICATION_EXPIRY_HOURS" envDefault:"24"`
+	OrgInviteExpiryDays          int `env:"ORG_INVITE_EXPIRY_DAYS" envDefault:"7"`
+
 	// SMTP & Email configuration
 	SMTPHost       string `env:"SMTP_HOST" envDefault:"localhost"`
 	SMTPPort       int    `env:"SMTP_PORT" envDefault:"1025"`

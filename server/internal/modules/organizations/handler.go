@@ -40,6 +40,20 @@ func (h *Handler) RegisterOrgRoutes(r chi.Router) {
 		// Permission is checked in the service: members may always remove themselves.
 		r.Delete("/{userID}", h.RemoveMember)
 	})
+
+	r.Route("/invitations", func(r chi.Router) {
+		manage := authz.Require(authz.PermMembersManage)
+		r.With(authz.Require(authz.PermMembersView)).Get("/", h.ListInvitations)
+		r.With(manage).Post("/", h.CreateInvitation)
+		r.With(manage).Post("/{invitationID}/resend", h.ResendInvitation)
+		r.With(manage).Delete("/{invitationID}", h.RevokeInvitation)
+	})
+}
+
+// RegisterInvitationRoutes mounts the invitee's routes, which are not scoped
+// to an organization the caller already belongs to.
+func (h *Handler) RegisterInvitationRoutes(r chi.Router) {
+	r.Post("/accept", h.AcceptInvitation)
 }
 
 func (h *Handler) Create(w http.ResponseWriter, r *http.Request) {
@@ -167,4 +181,94 @@ func (h *Handler) RemoveMember(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.Success(w, http.StatusOK, "Member removed", nil)
+}
+
+func (h *Handler) CreateInvitation(w http.ResponseWriter, r *http.Request) {
+	m, _ := authz.MembershipFrom(r.Context())
+	var req CreateInvitationRequest
+	if errs, err := validator.DecodeAndValidate(r, &req); err != nil {
+		response.Fail(w, apperr.Validation(errs))
+		return
+	}
+
+	inv, err := h.service.CreateInvitation(r.Context(), m, req)
+	if err != nil {
+		response.Fail(w, err)
+		return
+	}
+	response.Success(w, http.StatusCreated, "Invitation sent", inv)
+}
+
+func (h *Handler) ListInvitations(w http.ResponseWriter, r *http.Request) {
+	m, _ := authz.MembershipFrom(r.Context())
+	p, err := pagination.FromRequest(r)
+	if err != nil {
+		response.Fail(w, err)
+		return
+	}
+	f := InvitationFilter{Status: InvitationStatus(r.URL.Query().Get("status"))}
+	switch f.Status {
+	case "", InvitationPending, InvitationAccepted, InvitationExpired, InvitationRevoked:
+	default:
+		response.Fail(w, apperr.Validation(map[string]string{"status": "status must be one of [pending accepted expired revoked]"}))
+		return
+	}
+
+	page, err := h.service.ListInvitations(r.Context(), m, f, p)
+	if err != nil {
+		response.Fail(w, err)
+		return
+	}
+	response.Success(w, http.StatusOK, "Invitations loaded", page)
+}
+
+func (h *Handler) ResendInvitation(w http.ResponseWriter, r *http.Request) {
+	m, _ := authz.MembershipFrom(r.Context())
+	invitationID, err := request.URLParamUUID(r, "invitationID")
+	if err != nil {
+		response.Fail(w, err)
+		return
+	}
+
+	inv, err := h.service.ResendInvitation(r.Context(), m, invitationID)
+	if err != nil {
+		response.Fail(w, err)
+		return
+	}
+	response.Success(w, http.StatusOK, "Invitation resent", inv)
+}
+
+func (h *Handler) RevokeInvitation(w http.ResponseWriter, r *http.Request) {
+	m, _ := authz.MembershipFrom(r.Context())
+	invitationID, err := request.URLParamUUID(r, "invitationID")
+	if err != nil {
+		response.Fail(w, err)
+		return
+	}
+
+	if err := h.service.RevokeInvitation(r.Context(), m, invitationID); err != nil {
+		response.Fail(w, err)
+		return
+	}
+	response.Success(w, http.StatusOK, "Invitation revoked", nil)
+}
+
+func (h *Handler) AcceptInvitation(w http.ResponseWriter, r *http.Request) {
+	userID, ok := middleware.GetUserID(r.Context())
+	if !ok {
+		response.Error(w, http.StatusUnauthorized, "Authentication required")
+		return
+	}
+	var req AcceptInvitationRequest
+	if errs, err := validator.DecodeAndValidate(r, &req); err != nil {
+		response.Fail(w, apperr.Validation(errs))
+		return
+	}
+
+	org, err := h.service.AcceptInvitation(r.Context(), userID, req.Token)
+	if err != nil {
+		response.Fail(w, err)
+		return
+	}
+	response.Success(w, http.StatusOK, "Invitation accepted", org)
 }

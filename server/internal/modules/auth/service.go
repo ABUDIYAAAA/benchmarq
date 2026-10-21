@@ -15,10 +15,16 @@ import (
 )
 
 var (
-	ErrInvalidCredentials = errors.New("invalid email or password")
-	ErrAccountInactive    = errors.New("account is deactivated")
-	ErrInvalidDevice      = errors.New("invalid or mismatched device session")
+	ErrInvalidCredentials      = errors.New("invalid email or password")
+	ErrAccountInactive         = errors.New("account is deactivated")
+	ErrInvalidDevice           = errors.New("invalid or mismatched device session")
+	ErrEmailAlreadyVerified    = errors.New("email is already verified")
+	ErrVerificationRateLimited = errors.New("a verification email was sent recently")
 )
+
+// verificationResendCooldown is the minimum gap between two verification
+// emails to the same user.
+const verificationResendCooldown = time.Minute
 
 type Service interface {
 	SignUp(ctx context.Context, req *SignUpRequest, clientIP string, userAgent string, clientDeviceID string) (*AuthResponse, *TokenPair, error)
@@ -27,6 +33,8 @@ type Service interface {
 	Logout(ctx context.Context, rawRefreshToken string) error
 	ForgotPassword(ctx context.Context, req *ForgotPasswordRequest) error
 	ResetPassword(ctx context.Context, req *ResetPasswordRequest) error
+	VerifyEmail(ctx context.Context, req *VerifyEmailRequest) error
+	ResendVerification(ctx context.Context, userID uuid.UUID) error
 	GetMe(ctx context.Context, userID uuid.UUID) (*UserResponse, error)
 }
 
@@ -68,11 +76,6 @@ func (s *authService) SignUp(ctx context.Context, req *SignUpRequest, clientIP s
 		return nil, nil, err
 	}
 
-	// Claim any pending organization invitations for this email
-	if err := s.repo.ClaimPendingInvitations(ctx, user.Email, user.ID); err != nil {
-		s.logger.Warn("Failed linking pending invitations on signup", "email", user.Email, "error", err)
-	}
-
 	// Device ID resolution
 	deviceID := clientDeviceID
 	if deviceID == "" {
@@ -85,9 +88,13 @@ func (s *authService) SignUp(ctx context.Context, req *SignUpRequest, clientIP s
 		return nil, nil, err
 	}
 
-	// Send Welcome / Verification email asynchronously
-	if s.mailer != nil {
-		verifyURL := fmt.Sprintf("%s/verify-email?email=%s", s.cfg.FrontendURL, user.Email)
+	// Send Welcome / Verification email asynchronously. Pending organization
+	// invitations are claimed once the address is verified, not here, so an
+	// unverified signup cannot join an organization by naming its email.
+	verifyURL, err := s.issueVerificationURL(ctx, user)
+	if err != nil {
+		s.logger.Warn("Failed issuing email verification token on signup", "user_id", user.ID, "error", err)
+	} else if s.mailer != nil {
 		_ = s.mailer.SendWelcomeEmail(user.Email, user.FirstName, verifyURL)
 	}
 
@@ -276,6 +283,76 @@ func (s *authService) ResetPassword(ctx context.Context, req *ResetPasswordReque
 	_ = s.repo.RevokeUserSessions(ctx, resetRecord.UserID)
 
 	return nil
+}
+
+func (s *authService) VerifyEmail(ctx context.Context, req *VerifyEmailRequest) error {
+	userID, err := s.repo.ConsumeEmailVerificationToken(ctx, token.HashToken(req.Token))
+	if err != nil {
+		return err
+	}
+
+	user, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if err := s.repo.ClaimPendingInvitations(ctx, user.Email, user.ID); err != nil {
+		s.logger.Warn("Failed linking pending invitations on email verification", "user_id", user.ID, "error", err)
+	}
+	return nil
+}
+
+func (s *authService) ResendVerification(ctx context.Context, userID uuid.UUID) error {
+	user, err := s.repo.GetUserByID(ctx, userID)
+	if err != nil {
+		return err
+	}
+	if user.IsEmailVerified {
+		return ErrEmailAlreadyVerified
+	}
+
+	lastSent, err := s.repo.LastEmailVerificationSentAt(ctx, user.ID)
+	if err != nil {
+		return err
+	}
+	if lastSent != nil && time.Since(*lastSent) < verificationResendCooldown {
+		return ErrVerificationRateLimited
+	}
+
+	verifyURL, err := s.issueVerificationURL(ctx, user)
+	if err != nil {
+		return err
+	}
+	if s.mailer != nil {
+		_ = s.mailer.SendVerificationEmail(user.Email, user.FirstName, verifyURL, s.verificationExpiryHours())
+	}
+	return nil
+}
+
+// issueVerificationURL stores a fresh verification token for user, which
+// invalidates any earlier one, and returns the link to email.
+func (s *authService) issueVerificationURL(ctx context.Context, user *User) (string, error) {
+	rawToken, tokenHash, err := token.GenerateOpaqueToken()
+	if err != nil {
+		return "", fmt.Errorf("failed generating verification token: %w", err)
+	}
+
+	record := &EmailVerificationToken{
+		ID:        uuid.New(),
+		UserID:    user.ID,
+		TokenHash: tokenHash,
+		ExpiresAt: time.Now().UTC().Add(time.Duration(s.verificationExpiryHours()) * time.Hour),
+	}
+	if err := s.repo.CreateEmailVerificationToken(ctx, record); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%s/verify-email?token=%s", s.cfg.FrontendURL, rawToken), nil
+}
+
+func (s *authService) verificationExpiryHours() int {
+	if s.cfg.EmailVerificationExpiryHours <= 0 {
+		return 24
+	}
+	return s.cfg.EmailVerificationExpiryHours
 }
 
 func (s *authService) GetMe(ctx context.Context, userID uuid.UUID) (*UserResponse, error) {

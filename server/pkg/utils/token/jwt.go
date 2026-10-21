@@ -107,10 +107,16 @@ func GenerateRefreshToken() (string, string, error) {
 
 // GeneratePasswordResetToken returns (rawResetToken, hashedResetToken, error).
 func GeneratePasswordResetToken() (string, string, error) {
+	return GenerateOpaqueToken()
+}
+
+// GenerateOpaqueToken returns a random single-use token for links sent by
+// email (verification, invitations) as (rawToken, hashedToken, error). Only
+// the hash is stored.
+func GenerateOpaqueToken() (string, string, error) {
 	raw, err := GenerateRandomHexToken(32)
 	if err != nil {
 		return "", "", err
 	}
-	hashed := HashToken(raw)
-	return raw, hashed, nil
+	return raw, HashToken(raw), nil
 }

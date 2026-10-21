@@ -31,6 +31,20 @@ type UpdateMemberRoleRequest struct {
 	Role authz.Role `json:"role" validate:"required,oneof=owner admin instructor proctor candidate"`
 }
 
+type CreateInvitationRequest struct {
+	Email string     `json:"email" validate:"required,email,max=254"`
+	Role  authz.Role `json:"role" validate:"required,oneof=owner admin instructor proctor candidate"`
+}
+
+type AcceptInvitationRequest struct {
+	Token string `json:"token" validate:"required,max=128"`
+}
+
+// InvitationFilter narrows invitation listings. An empty Status lists all.
+type InvitationFilter struct {
+	Status InvitationStatus
+}
+
 type OrganizationResponse struct {
 	ID        uuid.UUID      `json:"id"`
 	Name      string         `json:"name"`

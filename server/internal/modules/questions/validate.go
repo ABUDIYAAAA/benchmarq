@@ -57,11 +57,6 @@ func Validate(sectionType exams.SectionType, in *QuestionInput) map[string]strin
 		if e := in.Essay; e != nil && e.MinWords != nil && e.MaxWords != nil && *e.MinWords > *e.MaxWords {
 			errs["essay.min_words"] = "min_words cannot exceed max_words"
 		}
-
-	case TypeCoding:
-		if in.Coding == nil {
-			errs["coding"] = "coding is required"
-		}
 	}
 	return errs
 }
@@ -80,7 +75,6 @@ func rejectForeignBlocks(in *QuestionInput, errs map[string]string) {
 		{"blank_fill", in.BlankFill != nil, in.Type == TypeBlankFill},
 		{"short_answer", in.ShortAnswer != nil, in.Type == TypeShortAnswer},
 		{"essay", in.Essay != nil, in.Type == TypeEssay},
-		{"coding", in.Coding != nil, in.Type == TypeCoding},
 	}
 	for _, b := range blocks {
 		if b.present && !b.allowed {

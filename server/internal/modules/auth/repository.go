@@ -20,6 +20,7 @@ var (
 	ErrResetTokenNotFound    = errors.New("password reset token not found or invalid")
 	ErrResetTokenExpired     = errors.New("password reset token has expired")
 	ErrResetTokenAlreadyUsed = errors.New("password reset token has already been used")
+	ErrVerificationInvalid   = errors.New("email verification token not found, used or expired")
 )
 
 type Repository interface {
@@ -36,6 +37,15 @@ type Repository interface {
 	CreatePasswordResetToken(ctx context.Context, token *PasswordResetToken) error
 	GetPasswordResetTokenByHash(ctx context.Context, tokenHash string) (*PasswordResetToken, error)
 	MarkPasswordResetTokenUsed(ctx context.Context, tokenID uuid.UUID) error
+	// CreateEmailVerificationToken stores a new token and invalidates every
+	// earlier unused token of the same user.
+	CreateEmailVerificationToken(ctx context.Context, token *EmailVerificationToken) error
+	// LastEmailVerificationSentAt returns when the newest token for the user
+	// was issued, or nil if none was.
+	LastEmailVerificationSentAt(ctx context.Context, userID uuid.UUID) (*time.Time, error)
+	// ConsumeEmailVerificationToken marks a valid token used and the owning
+	// user verified in one statement, returning that user's ID.
+	ConsumeEmailVerificationToken(ctx context.Context, tokenHash string) (uuid.UUID, error)
 	ClaimPendingInvitations(ctx context.Context, email string, userID uuid.UUID) error
 }
 
@@ -336,6 +346,63 @@ func (r *postgresRepository) MarkPasswordResetTokenUsed(ctx context.Context, tok
 	`
 	_, err := r.db.Exec(ctx, query, tokenID)
 	return err
+}
+
+func (r *postgresRepository) CreateEmailVerificationToken(ctx context.Context, token *EmailVerificationToken) error {
+	if token.ID == uuid.Nil {
+		token.ID = uuid.New()
+	}
+	token.CreatedAt = time.Now().UTC()
+
+	query := `
+		WITH spent AS (
+			UPDATE email_verification_tokens
+			SET is_used = TRUE
+			WHERE user_id = $2 AND is_used = FALSE
+		)
+		INSERT INTO email_verification_tokens (id, user_id, token_hash, is_used, expires_at, created_at)
+		VALUES ($1, $2, $3, FALSE, $4, $5)
+	`
+	_, err := r.db.Exec(ctx, query, token.ID, token.UserID, token.TokenHash, token.ExpiresAt, token.CreatedAt)
+	if err != nil {
+		return fmt.Errorf("failed saving email verification token: %w", err)
+	}
+	return nil
+}
+
+func (r *postgresRepository) LastEmailVerificationSentAt(ctx context.Context, userID uuid.UUID) (*time.Time, error) {
+	var sentAt *time.Time
+	err := r.db.QueryRow(ctx,
+		`SELECT max(created_at) FROM email_verification_tokens WHERE user_id = $1`, userID,
+	).Scan(&sentAt)
+	if err != nil {
+		return nil, fmt.Errorf("failed querying last verification email: %w", err)
+	}
+	return sentAt, nil
+}
+
+func (r *postgresRepository) ConsumeEmailVerificationToken(ctx context.Context, tokenHash string) (uuid.UUID, error) {
+	query := `
+		WITH consumed AS (
+			UPDATE email_verification_tokens
+			SET is_used = TRUE
+			WHERE token_hash = $1 AND is_used = FALSE AND expires_at > now()
+			RETURNING user_id
+		)
+		UPDATE users u
+		SET is_email_verified = TRUE, updated_at = now()
+		FROM consumed
+		WHERE u.id = consumed.user_id AND u.deleted_at IS NULL
+		RETURNING u.id
+	`
+	var userID uuid.UUID
+	if err := r.db.QueryRow(ctx, query, tokenHash).Scan(&userID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return uuid.Nil, ErrVerificationInvalid
+		}
+		return uuid.Nil, fmt.Errorf("failed consuming email verification token: %w", err)
+	}
+	return userID, nil
 }
 
 func (r *postgresRepository) ClaimPendingInvitations(ctx context.Context, email string, userID uuid.UUID) error {

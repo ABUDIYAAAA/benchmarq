@@ -88,12 +88,11 @@ type SectionType string
 
 const (
 	SectionObjective  SectionType = "objective"
-	SectionCoding     SectionType = "coding"
 	SectionSubjective SectionType = "subjective"
 )
 
 // autoGradable reports whether scores for the section are known as soon as
 // the candidate submits, which score-gated prerequisites depend on.
 func (t SectionType) autoGradable() bool {
-	return t == SectionObjective || t == SectionCoding
+	return t == SectionObjective
 }

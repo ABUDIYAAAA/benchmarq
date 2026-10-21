@@ -1,0 +1,27 @@
+{{template "layout" .}}
+
+{{define "title"}}Join {{.OrgName}} on Benchmarq{{end}}
+
+{{define "content"}}
+<h2 style="margin-top: 0; color: #0f172a; font-size: 22px;">You're invited to {{.OrgName}}</h2>
+<p>Hello,</p>
+
+<p><strong>{{.InviterName}}</strong> has invited you to join <strong>{{.OrgName}}</strong> on Benchmarq as <strong>{{.Role}}</strong>.</p>
+
+<div style="text-align: center;">
+  <a href="{{.AcceptURL}}" class="button">Accept Invitation</a>
+</div>
+
+<p style="font-size: 14px; color: #64748b;">Or copy and paste this link into your browser:<br>
+<a href="{{.AcceptURL}}" style="color: #0284c7; word-break: break-all;">{{.AcceptURL}}</a></p>
+
+<div class="details-box">
+  <p style="margin: 0; font-size: 14px; color: #475569;">
+    ⏱️ <strong>Note:</strong> This invitation expires in <strong>{{.ExpiresDays}} days</strong>. Sign in, or create an account, with this email address to accept it.
+  </p>
+</div>
+
+<p style="font-size: 14px; color: #64748b;">If you were not expecting this invitation, you can safely ignore this email.</p>
+
+<p style="margin-bottom: 0;">Best regards,<br><strong>The Benchmarq Team</strong></p>
+{{end}}

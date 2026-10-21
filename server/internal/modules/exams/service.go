@@ -640,9 +640,6 @@ func normalizeConfig(cfg *ExamConfig) {
 	if cfg.Proctoring.IPWhitelistCIDR != nil && len(cfg.Proctoring.IPWhitelistCIDR) == 0 {
 		cfg.Proctoring.IPWhitelistCIDR = nil
 	}
-	if cfg.Coding.AllowedLanguageIDs != nil && len(cfg.Coding.AllowedLanguageIDs) == 0 {
-		cfg.Coding.AllowedLanguageIDs = nil
-	}
 }
 
 func trimmedOrNil(s *string) *string {

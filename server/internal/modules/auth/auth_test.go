@@ -3,30 +3,36 @@ package auth
 import (
 	"bytes"
 	"context"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"testing"
 	"time"
 
 	"github.com/ABUDIYAAAA/benchmarq/internal/config"
+	"github.com/ABUDIYAAAA/benchmarq/internal/mailer"
 	"github.com/ABUDIYAAAA/benchmarq/pkg/utils/cookies"
 	"github.com/ABUDIYAAAA/benchmarq/pkg/utils/logger"
 	"github.com/google/uuid"
 )
 
 type mockRepository struct {
-	users       map[string]*User
-	usersByID   map[uuid.UUID]*User
-	sessions    map[string]*UserSession
-	resetTokens map[string]*PasswordResetToken
+	users        map[string]*User
+	usersByID    map[uuid.UUID]*User
+	sessions     map[string]*UserSession
+	resetTokens  map[string]*PasswordResetToken
+	verifyTokens map[string]*EmailVerificationToken
+	claimedBy    []uuid.UUID
 }
 
 func newMockRepository() *mockRepository {
 	return &mockRepository{
-		users:       make(map[string]*User),
-		usersByID:   make(map[uuid.UUID]*User),
-		sessions:    make(map[string]*UserSession),
-		resetTokens: make(map[string]*PasswordResetToken),
+		users:        make(map[string]*User),
+		usersByID:    make(map[uuid.UUID]*User),
+		sessions:     make(map[string]*UserSession),
+		resetTokens:  make(map[string]*PasswordResetToken),
+		verifyTokens: make(map[string]*EmailVerificationToken),
 	}
 }
 
@@ -147,8 +153,70 @@ func (m *mockRepository) MarkPasswordResetTokenUsed(ctx context.Context, tokenID
 	return nil
 }
 
-func (m *mockRepository) ClaimPendingInvitations(ctx context.Context, email string, userID uuid.UUID) error {
+func (m *mockRepository) CreateEmailVerificationToken(ctx context.Context, token *EmailVerificationToken) error {
+	for _, t := range m.verifyTokens {
+		if t.UserID == token.UserID {
+			t.IsUsed = true
+		}
+	}
+	token.CreatedAt = time.Now().UTC()
+	m.verifyTokens[token.TokenHash] = token
 	return nil
+}
+
+func (m *mockRepository) LastEmailVerificationSentAt(ctx context.Context, userID uuid.UUID) (*time.Time, error) {
+	var last *time.Time
+	for _, t := range m.verifyTokens {
+		if t.UserID == userID && (last == nil || t.CreatedAt.After(*last)) {
+			last = &t.CreatedAt
+		}
+	}
+	return last, nil
+}
+
+func (m *mockRepository) ConsumeEmailVerificationToken(ctx context.Context, tokenHash string) (uuid.UUID, error) {
+	t, ok := m.verifyTokens[tokenHash]
+	if !ok || t.IsUsed || time.Now().After(t.ExpiresAt) {
+		return uuid.Nil, ErrVerificationInvalid
+	}
+	t.IsUsed = true
+	m.usersByID[t.UserID].IsEmailVerified = true
+	return t.UserID, nil
+}
+
+func (m *mockRepository) ClaimPendingInvitations(ctx context.Context, email string, userID uuid.UUID) error {
+	m.claimedBy = append(m.claimedBy, userID)
+	return nil
+}
+
+// recordingMailer captures verification links. Methods the auth service does
+// not call fall through to the nil embedded interface and panic.
+type recordingMailer struct {
+	mailer.Mailer
+	verifyURLs []string
+}
+
+func (m *recordingMailer) SendWelcomeEmail(to, name, verifyURL string) error {
+	m.verifyURLs = append(m.verifyURLs, verifyURL)
+	return nil
+}
+
+func (m *recordingMailer) SendVerificationEmail(to, name, verifyURL string, expiresHours int) error {
+	m.verifyURLs = append(m.verifyURLs, verifyURL)
+	return nil
+}
+
+func tokenFromURL(t *testing.T, raw string) string {
+	t.Helper()
+	u, err := url.Parse(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	tok := u.Query().Get("token")
+	if tok == "" {
+		t.Fatalf("verification link has no token: %s", raw)
+	}
+	return tok
 }
 
 func TestAuthWorkflow(t *testing.T) {
@@ -282,5 +350,69 @@ func TestAuthHandlersHTTP(t *testing.T) {
 	}
 	if !hasAccess || !hasRefresh || !hasDevice {
 		t.Errorf("expected auth cookies to be set, got hasAccess=%v, hasRefresh=%v, hasDevice=%v", hasAccess, hasRefresh, hasDevice)
+	}
+}
+
+func TestEmailVerification(t *testing.T) {
+	cfg := &config.Config{
+		JWTSecret:              "test_secret_for_auth_12345",
+		JWTAccessExpiryMinutes: 15,
+		JWTRefreshExpiryDays:   7,
+		JWTIssuer:              "benchmarq",
+		FrontendURL:            "http://localhost:3000",
+	}
+	repo := newMockRepository()
+	mail := &recordingMailer{}
+	service := NewService(repo, cfg, logger.NewInfoLogger(), mail)
+	ctx := context.Background()
+
+	authResp, _, err := service.SignUp(ctx, &SignUpRequest{
+		Email: "verify@benchmarq.io", Password: "SecurePassword123!", FirstName: "Vee",
+	}, "127.0.0.1", "TestAgent", "")
+	if err != nil {
+		t.Fatalf("SignUp failed: %v", err)
+	}
+	userID := authResp.User.ID
+	if len(mail.verifyURLs) != 1 {
+		t.Fatalf("expected one welcome email with a verification link, got %d", len(mail.verifyURLs))
+	}
+	if len(repo.claimedBy) != 0 {
+		t.Fatal("invitations must not be claimed before the email is verified")
+	}
+	firstToken := tokenFromURL(t, mail.verifyURLs[0])
+
+	// Resending right after signup is rate limited.
+	if err := service.ResendVerification(ctx, userID); !errors.Is(err, ErrVerificationRateLimited) {
+		t.Fatalf("expected rate limit, got %v", err)
+	}
+
+	// Once the cooldown has passed, a new link replaces the old one.
+	for _, tok := range repo.verifyTokens {
+		tok.CreatedAt = tok.CreatedAt.Add(-2 * verificationResendCooldown)
+	}
+	if err := service.ResendVerification(ctx, userID); err != nil {
+		t.Fatalf("ResendVerification failed: %v", err)
+	}
+	secondToken := tokenFromURL(t, mail.verifyURLs[1])
+	if err := service.VerifyEmail(ctx, &VerifyEmailRequest{Token: firstToken}); !errors.Is(err, ErrVerificationInvalid) {
+		t.Fatalf("superseded token should be rejected, got %v", err)
+	}
+
+	if err := service.VerifyEmail(ctx, &VerifyEmailRequest{Token: secondToken}); err != nil {
+		t.Fatalf("VerifyEmail failed: %v", err)
+	}
+	me, _ := service.GetMe(ctx, userID)
+	if !me.IsEmailVerified {
+		t.Fatal("user should be verified")
+	}
+	if len(repo.claimedBy) != 1 || repo.claimedBy[0] != userID {
+		t.Fatalf("pending invitations should be claimed on verification, got %v", repo.claimedBy)
+	}
+
+	if err := service.VerifyEmail(ctx, &VerifyEmailRequest{Token: secondToken}); !errors.Is(err, ErrVerificationInvalid) {
+		t.Fatalf("token reuse should be rejected, got %v", err)
+	}
+	if err := service.ResendVerification(ctx, userID); !errors.Is(err, ErrEmailAlreadyVerified) {
+		t.Fatalf("expected already verified, got %v", err)
 	}
 }

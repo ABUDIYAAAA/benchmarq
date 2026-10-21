@@ -1,0 +1,27 @@
+{{template "layout" .}}
+
+{{define "title"}}Verify Your Email - Benchmarq{{end}}
+
+{{define "content"}}
+<h2 style="margin-top: 0; color: #0f172a; font-size: 22px;">Verify Your Email Address</h2>
+<p>Hello {{.Name}},</p>
+
+<p>Please confirm that this is your email address by clicking the button below:</p>
+
+<div style="text-align: center;">
+  <a href="{{.VerifyURL}}" class="button">Verify Email Address</a>
+</div>
+
+<p style="font-size: 14px; color: #64748b;">Or copy and paste this link into your browser:<br>
+<a href="{{.VerifyURL}}" style="color: #0284c7; word-break: break-all;">{{.VerifyURL}}</a></p>
+
+<div class="details-box">
+  <p style="margin: 0; font-size: 14px; color: #475569;">
+    ⏱️ <strong>Note:</strong> This link is valid for <strong>{{.ExpiresHours}} hours</strong> and replaces any verification link we sent you earlier.
+  </p>
+</div>
+
+<p style="font-size: 14px; color: #64748b;">If you did not create a Benchmarq account, you can safely ignore this email.</p>
+
+<p style="margin-bottom: 0;">Best regards,<br><strong>The Benchmarq Team</strong></p>
+{{end}}

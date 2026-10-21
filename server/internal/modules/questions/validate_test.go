@@ -50,7 +50,7 @@ func TestValidate(t *testing.T) {
 		},
 		{
 			name:    "wrong section family",
-			section: exams.SectionCoding,
+			section: exams.SectionSubjective,
 			in:      QuestionInput{Type: TypeTrueFalse, Prompt: "?", Points: 1, TrueFalse: &TrueFalseInput{CorrectAnswer: ptr(true)}},
 			wantErr: "type",
 		},
@@ -105,12 +105,6 @@ func TestValidate(t *testing.T) {
 			in:      QuestionInput{Type: TypeEssay, Prompt: "Discuss.", Points: 10, Essay: &EssayInput{MinWords: ptr(500), MaxWords: ptr(100)}},
 			wantErr: "essay.min_words",
 		},
-		{
-			name:    "coding requires spec",
-			section: exams.SectionCoding,
-			in:      QuestionInput{Type: TypeCoding, Prompt: "Reverse a list", Points: 10},
-			wantErr: "coding",
-		},
 	}
 
 	for _, tc := range cases {
@@ -131,19 +125,18 @@ func TestValidate(t *testing.T) {
 
 func TestBuildAppliesDefaults(t *testing.T) {
 	in := QuestionInput{
-		Type: TypeCoding, Prompt: " Sum two numbers ", Points: 5,
-		Coding: &CodingInput{TestCases: []TestCaseInput{{Input: "1 2", ExpectedOutput: "3", IsHidden: ptr(false)}, {Input: "2 2", ExpectedOutput: "4"}}},
+		Type: TypeMultiSelect, Prompt: " Pick primes ", Points: 5,
+		Options: []OptionInput{{Content: " 2 ", IsCorrect: true}, {Content: "3", IsCorrect: true, Weight: ptr(2.0)}, {Content: "4"}},
 	}
-	q := build(&in, exams.SectionCoding)
-	if q.Prompt != "Sum two numbers" {
+	q := build(&in, exams.SectionObjective)
+	if q.Prompt != "Pick primes" {
 		t.Errorf("prompt not trimmed: %q", q.Prompt)
 	}
-	c := q.Coding
-	if c.TimeLimitMs != defaultCodingTimeLimitMs || c.MemoryLimitMb != defaultCodingMemoryLimitMb {
-		t.Errorf("coding defaults not applied: %+v", c)
+	if q.MultiSelect.MinChoicesRequired != 1 || q.MultiSelect.MaxChoicesAllowed != nil {
+		t.Errorf("multi-select defaults not applied: %+v", q.MultiSelect)
 	}
-	if c.TestCases[0].IsHidden || !c.TestCases[1].IsHidden || c.TestCases[1].Points != 1 || c.TestCases[1].Position != 1 {
-		t.Errorf("test case defaults wrong: %+v", c.TestCases)
+	if o := q.Options; o[0].Content != "2" || o[0].Weight != 1 || o[1].Weight != 2 || o[2].Position != 2 {
+		t.Errorf("option defaults wrong: %+v", o)
 	}
 
 	essay := build(&QuestionInput{Type: TypeEssay, Prompt: "x", Points: 1}, exams.SectionSubjective)

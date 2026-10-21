@@ -474,7 +474,6 @@ func AssessReadiness(bp Blueprint) Readiness {
 		sectionMinutes  int
 		untimedSections int
 		hasSubjective   bool
-		hasCoding       bool
 		negativeMarked  int
 		openAtStart     bool
 	)
@@ -489,7 +488,6 @@ func AssessReadiness(bp Blueprint) Readiness {
 		totalQuestions += stats.QuestionCount
 		negativeMarked += stats.NegativeMarked
 		hasSubjective = hasSubjective || s.SectionType == SectionSubjective
-		hasCoding = hasCoding || s.SectionType == SectionCoding
 		if !r.LockedAtStart {
 			openAtStart = true
 		}
@@ -576,9 +574,6 @@ func AssessReadiness(bp Blueprint) Readiness {
 	if negativeMarked > 0 && !cfg.Scoring.NegativeMarkingEnabled {
 		is.warnf("config.scoring.negative_marking_enabled", "negative_points_ignored",
 			"%d question(s) define negative points, which are ignored while negative marking is off", negativeMarked)
-	}
-	if hasCoding && len(cfg.Coding.AllowedLanguageIDs) == 0 {
-		is.warnf("config.coding.allowed_language_ids", "all_languages", "no language restriction is set; candidates may use any supported language")
 	}
 
 	totalMarks = round2(totalMarks)

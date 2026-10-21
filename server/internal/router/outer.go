@@ -7,6 +7,7 @@ import (
 	"github.com/ABUDIYAAAA/benchmarq/internal/config"
 	"github.com/ABUDIYAAAA/benchmarq/internal/database"
 	"github.com/ABUDIYAAAA/benchmarq/internal/middleware"
+	"github.com/ABUDIYAAAA/benchmarq/internal/modules/assignments"
 	"github.com/ABUDIYAAAA/benchmarq/internal/modules/auth"
 	"github.com/ABUDIYAAAA/benchmarq/internal/modules/exams"
 	"github.com/ABUDIYAAAA/benchmarq/internal/modules/organizations"
@@ -47,11 +48,24 @@ func NewRouter(appCfg *config.AppConfig) *chi.Mux {
 
 		authHandler.RegisterRoutes(api, authMiddleware)
 
-		// Organizations, exams and questions
+		// Organizations, invitations, exams, questions and assignments
 		orgRepo := organizations.NewRepository(appCfg.DB)
-		orgHandler := organizations.NewHandler(organizations.NewService(orgRepo, tx, appCfg.Logger))
+		orgHandler := organizations.NewHandler(organizations.NewService(orgRepo, tx, appCfg.Logger, organizations.InviteOptions{
+			Mailer:      appCfg.Mailer,
+			FrontendURL: appCfg.Config.FrontendURL,
+			ExpiryDays:  appCfg.Config.OrgInviteExpiryDays,
+		}))
 		examHandler := exams.NewHandler(exams.NewService(exams.NewRepository(appCfg.DB), tx, appCfg.Logger))
 		questionHandler := questions.NewHandler(questions.NewService(questions.NewRepository(appCfg.DB), tx, appCfg.Logger))
+		assignmentHandler := assignments.NewHandler(assignments.NewService(assignments.NewRepository(appCfg.DB), tx, appCfg.Logger, assignments.Options{
+			Mailer:      appCfg.Mailer,
+			FrontendURL: appCfg.Config.FrontendURL,
+		}))
+
+		api.Route("/invitations", func(inv chi.Router) {
+			inv.Use(authMiddleware)
+			orgHandler.RegisterInvitationRoutes(inv)
+		})
 
 		api.Route("/orgs", func(orgs chi.Router) {
 			orgs.Use(authMiddleware)
@@ -62,7 +76,7 @@ func NewRouter(appCfg *config.AppConfig) *chi.Mux {
 				orgHandler.RegisterOrgRoutes(org)
 
 				org.Route("/exams", func(r chi.Router) {
-					examHandler.RegisterRoutes(r, questionHandler.RegisterRoutes)
+					examHandler.RegisterRoutes(r, questionHandler.RegisterRoutes, assignmentHandler.RegisterRoutes)
 				})
 			})
 		})

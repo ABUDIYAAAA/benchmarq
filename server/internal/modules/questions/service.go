@@ -20,7 +20,6 @@ const MaxQuestionsPerSection = 500
 var (
 	errSectionNotFound  = apperr.NotFound("Section not found")
 	errQuestionNotFound = apperr.NotFound("Question not found")
-	errUnknownLanguage  = apperr.Validation(map[string]string{"coding.default_language_id": "coding language does not exist"})
 )
 
 // Scope identifies a section within an organization's exam.
@@ -217,8 +216,6 @@ func (s *service) mapErr(err error, op string) error {
 		return errSectionNotFound
 	case errors.Is(err, ErrQuestionNotFound):
 		return errQuestionNotFound
-	case errors.Is(err, ErrUnknownLanguage):
-		return errUnknownLanguage
 	}
 	if _, ok := apperr.As(err); ok {
 		return err

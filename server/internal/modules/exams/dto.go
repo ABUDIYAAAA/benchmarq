@@ -50,7 +50,7 @@ type SectionInput struct {
 	Name               string              `json:"name" validate:"required,min=1,max=255"`
 	Description        *string             `json:"description" validate:"omitempty,max=10000"`
 	Instructions       *string             `json:"instructions" validate:"omitempty,max=50000"`
-	SectionType        SectionType         `json:"section_type" validate:"required,oneof=objective coding subjective"`
+	SectionType        SectionType         `json:"section_type" validate:"required,oneof=objective subjective"`
 	DurationMinutes    *int                `json:"duration_minutes" validate:"omitempty,gte=1,lte=1440"`
 	MarksWeightage     *float64            `json:"marks_weightage" validate:"omitempty,gte=0,lte=1000"`
 	CutoffMarks        *float64            `json:"cutoff_marks" validate:"omitempty,gte=0"`
