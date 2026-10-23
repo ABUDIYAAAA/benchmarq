@@ -8,11 +8,13 @@ import BrandLogo from "@/components/common/BrandLogo";
 import OrgSwitcher from "@/components/org/OrgSwitcher";
 import { useAuth } from "@/context/AuthContext";
 import { useOrg } from "@/context/OrgContext";
+import { can } from "@/lib/permissions";
 
 const NAV_ITEMS = [
   {
     label: "Overview",
     href: "/dashboard",
+    permission: "viewMembers",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
         <rect width="7" height="9" x="3" y="3" rx="1" />
@@ -23,8 +25,22 @@ const NAV_ITEMS = [
     ),
   },
   {
+    label: "Exams",
+    href: "/dashboard/exams",
+    permission: "viewExams",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z" />
+        <path d="M14 3v6h6" />
+        <path d="M8 13h8" />
+        <path d="M8 17h5" />
+      </svg>
+    ),
+  },
+  {
     label: "Users & Team",
     href: "/dashboard/users",
+    permission: "viewMembers",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
         <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
@@ -36,10 +52,26 @@ const NAV_ITEMS = [
   },
 ];
 
+// Exams assigned to the signed-in user, from any organization.
+const PERSONAL_ITEMS = [
+  {
+    label: "My exams",
+    href: "/dashboard/my-exams",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+        <rect width="18" height="14" x="3" y="4" rx="2" />
+        <path d="M8 21h8" />
+        <path d="M12 18v3" />
+      </svg>
+    ),
+  },
+];
+
 export default function DashboardSidebar() {
   const pathname = usePathname();
   const { user, logout, isLoggingOut } = useAuth();
   const { currentOrg, hasOrgs } = useOrg();
+  const managementItems = NAV_ITEMS.filter((item) => can(currentOrg?.my_role, item.permission));
 
   return (
     <Box
@@ -77,75 +109,20 @@ export default function DashboardSidebar() {
         <OrgSwitcher />
       </Box>
 
-      {/* Navigation Items */}
+      {/* Navigation Items: management links depend on the role in the selected organization */}
       <Box component="nav" sx={{ p: 2, flex: 1, display: "flex", flexDirection: "column", gap: 0.5 }}>
-        {hasOrgs && (
+        {hasOrgs && managementItems.length > 0 && (
           <>
-            <Typography
-              sx={{
-                fontSize: "0.6875rem",
-                fontWeight: 700,
-                color: "#71717a",
-                textTransform: "uppercase",
-                letterSpacing: "0.08em",
-                mb: 1,
-                mt: 1,
-                px: 0.5,
-              }}
-            >
-              Management
-            </Typography>
-
-            {NAV_ITEMS.map((item) => {
-              const isActive =
-                item.href === "/dashboard"
-                  ? pathname === "/dashboard"
-                  : pathname.startsWith(item.href);
-
-              return (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  style={{ textDecoration: "none", color: "inherit" }}
-                >
-                  <Box
-                    sx={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: 1.5,
-                      px: 1.5,
-                      py: 1,
-                      borderRadius: "6px",
-                      fontSize: "0.875rem",
-                      fontWeight: isActive ? 600 : 500,
-                      color: isActive ? "#09090b" : "#71717a",
-                      backgroundColor: isActive ? "#f4f4f5" : "transparent",
-                      transition: "background-color 120ms ease-out, color 120ms ease-out",
-                      "&:hover": {
-                        backgroundColor: "#f4f4f5",
-                        color: "#09090b",
-                      },
-                    }}
-                  >
-                    <Box
-                      component="span"
-                      sx={{
-                        color: isActive ? "#09090b" : "#a1a1aa",
-                        display: "flex",
-                        alignItems: "center",
-                      }}
-                    >
-                      {item.icon}
-                    </Box>
-                    <Typography sx={{ fontSize: "inherit", fontWeight: "inherit", color: "inherit" }}>
-                      {item.label}
-                    </Typography>
-                  </Box>
-                </Link>
-              );
-            })}
+            <NavHeading>Management</NavHeading>
+            {managementItems.map((item) => (
+              <NavLink key={item.href} item={item} pathname={pathname} />
+            ))}
           </>
         )}
+        <NavHeading>Personal</NavHeading>
+        {PERSONAL_ITEMS.map((item) => (
+          <NavLink key={item.href} item={item} pathname={pathname} />
+        ))}
       </Box>
 
       {/* Bottom Profile and Sign Out */}
@@ -209,5 +186,56 @@ export default function DashboardSidebar() {
         </Box>
       </Box>
     </Box>
+  );
+}
+
+function NavHeading({ children }) {
+  return (
+    <Typography
+      sx={{
+        fontSize: "0.6875rem",
+        fontWeight: 700,
+        color: "#71717a",
+        textTransform: "uppercase",
+        letterSpacing: "0.08em",
+        mb: 1,
+        mt: 1,
+        px: 0.5,
+      }}
+    >
+      {children}
+    </Typography>
+  );
+}
+
+function NavLink({ item, pathname }) {
+  const isActive = item.href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(item.href);
+  return (
+    <Link href={item.href} style={{ textDecoration: "none", color: "inherit" }}>
+      <Box
+        sx={{
+          display: "flex",
+          alignItems: "center",
+          gap: 1.5,
+          px: 1.5,
+          py: 1,
+          borderRadius: "6px",
+          fontSize: "0.875rem",
+          fontWeight: isActive ? 600 : 500,
+          color: isActive ? "#09090b" : "#71717a",
+          backgroundColor: isActive ? "#f4f4f5" : "transparent",
+          transition: "background-color 120ms ease-out, color 120ms ease-out",
+          "&:hover": {
+            backgroundColor: "#f4f4f5",
+            color: "#09090b",
+          },
+        }}
+      >
+        <Box component="span" sx={{ color: isActive ? "#09090b" : "#a1a1aa", display: "flex", alignItems: "center" }}>
+          {item.icon}
+        </Box>
+        <Typography sx={{ fontSize: "inherit", fontWeight: "inherit", color: "inherit" }}>{item.label}</Typography>
+      </Box>
+    </Link>
   );
 }

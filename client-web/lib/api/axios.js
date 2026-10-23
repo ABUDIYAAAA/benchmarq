@@ -11,7 +11,11 @@ export const apiClient = axios.create({
   },
 });
 
-// Refresh token concurrency management
+export const SESSION_EXPIRED_EVENT = "benchmarq:session-expired";
+
+// Refresh token concurrency management. Concurrent 401s share one refresh;
+// separate tabs may still refresh at the same moment, which the server
+// tolerates within its reuse window.
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -32,11 +36,10 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Do not attempt refresh on auth endpoints (login, signup, refresh itself)
-    const isAuthRoute =
-      originalRequest?.url?.includes("/auth/login") ||
-      originalRequest?.url?.includes("/auth/signup") ||
-      originalRequest?.url?.includes("/auth/refresh");
+    // Do not attempt refresh on auth endpoints (login, signup, logout, refresh itself)
+    const isAuthRoute = ["/auth/login", "/auth/signup", "/auth/logout", "/auth/refresh"].some((path) =>
+      originalRequest?.url?.includes(path)
+    );
 
     if (error.response?.status === 401 && !originalRequest?._retry && !isAuthRoute) {
       if (isRefreshing) {
@@ -58,6 +61,11 @@ apiClient.interceptors.response.use(
         return apiClient(originalRequest);
       } catch (refreshError) {
         processQueue(refreshError);
+        // The session is gone (expired, revoked or replayed): let the app
+        // clear its state and send the user to sign in.
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+        }
         return Promise.reject(refreshError);
       } finally {
         isRefreshing = false;

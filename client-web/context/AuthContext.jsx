@@ -1,11 +1,14 @@
 "use client";
 
-import { createContext, useContext, useMemo, useCallback } from "react";
+import { createContext, useContext, useMemo, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
+import { SESSION_EXPIRED_EVENT } from "@/lib/api/axios";
 import {
   useCurrentUser,
   useLoginMutation,
   useSignUpMutation,
+  authKeys,
   useLogoutMutation,
 } from "@/hooks/api/useAuth";
 
@@ -13,6 +16,20 @@ const AuthContext = createContext(null);
 
 export function AuthProvider({ children }) {
   const router = useRouter();
+  const queryClient = useQueryClient();
+
+  // A failed token refresh ends the session everywhere in the app.
+  useEffect(() => {
+    // Visitors on public pages were never signed in; only redirect when a
+    // known user just lost their session.
+    const onExpired = () => {
+      const wasSignedIn = Boolean(queryClient.getQueryData(authKeys.me()));
+      queryClient.clear();
+      if (wasSignedIn) router.push("/login");
+    };
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, [queryClient, router]);
 
   // Primary user query backed by TanStack Query & cookie session
   const {

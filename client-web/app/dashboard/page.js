@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import Container from "@mui/material/Container";
 import Typography from "@mui/material/Typography";
@@ -14,10 +15,18 @@ import OrgDashboardView from "@/components/org/OrgDashboardView";
 import { useAuth } from "@/context/AuthContext";
 import { useOrg } from "@/context/OrgContext";
 import { useResendVerificationMutation, getApiErrorMessage } from "@/hooks/api/useAuth";
+import { isStaff } from "@/lib/permissions";
 
 export default function AdminDashboardPage() {
   const { user } = useAuth();
   const { currentOrg, hasOrgs, isLoadingOrgs } = useOrg();
+  const router = useRouter();
+  const candidateOnly = Boolean(currentOrg) && !isStaff(currentOrg.my_role);
+
+  // Candidates have nothing to manage; their home is the exams they can take.
+  useEffect(() => {
+    if (candidateOnly) router.replace("/dashboard/my-exams");
+  }, [candidateOnly, router]);
 
   const [bannerDismissed, setBannerDismissed] = useState(false);
   const [resendStatus, setResendStatus] = useState("idle"); // "idle" | "sent" | "error"
@@ -144,7 +153,7 @@ export default function AdminDashboardPage() {
           </Box>
         ) : !hasOrgs ? (
           <OrgZeroState />
-        ) : currentOrg ? (
+        ) : currentOrg && !candidateOnly ? (
           <OrgDashboardView org={currentOrg} />
         ) : null}
       </Container>

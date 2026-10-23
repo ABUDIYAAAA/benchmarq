@@ -291,11 +291,43 @@ func TestAuthWorkflow(t *testing.T) {
 		t.Errorf("expected rotated tokens, got empty")
 	}
 
-	// Old refresh token must now be invalid
-	_, _, err = service.RefreshToken(ctx, loginTokens.RefreshToken, loginResp.DeviceID, "127.0.0.1", "TestAgent")
-	if err == nil {
-		t.Fatalf("expected old refresh token to be invalid, but succeeded")
+	// A just-rotated token is still honoured inside the reuse window (two
+	// tabs refreshing at once), and the race yields a fresh, working pair.
+	raced, _, err := service.RefreshToken(ctx, loginTokens.RefreshToken, loginResp.DeviceID, "127.0.0.1", "TestAgent")
+	if err != nil {
+		t.Fatalf("refresh with a just-rotated token should succeed inside the reuse window: %v", err)
 	}
+	// The other tab's token is now the previous one and still works.
+	if rotTokens, _, err = service.RefreshToken(ctx, rotTokens.RefreshToken, loginResp.DeviceID, "127.0.0.1", "TestAgent"); err != nil {
+		t.Fatalf("concurrent tab's token should still refresh: %v", err)
+	}
+
+	// Outside the window, a previous token is a replay: rejected, and every
+	// session on the device is revoked.
+	for _, sess := range repo.sessions {
+		if sess.RotatedAt != nil {
+			old := sess.RotatedAt.Add(-time.Hour)
+			sess.RotatedAt = &old
+		}
+	}
+	if _, _, err = service.RefreshToken(ctx, raced.RefreshToken, loginResp.DeviceID, "127.0.0.1", "TestAgent"); err == nil {
+		t.Fatalf("expected a replayed refresh token to be rejected after the reuse window")
+	}
+	if _, _, err = service.RefreshToken(ctx, rotTokens.RefreshToken, loginResp.DeviceID, "127.0.0.1", "TestAgent"); err == nil {
+		t.Fatalf("expected the device's sessions to be revoked after a replay")
+	}
+
+	// Unknown tokens are rejected outright.
+	if _, _, err = service.RefreshToken(ctx, "not-a-real-token", loginResp.DeviceID, "127.0.0.1", "TestAgent"); err == nil {
+		t.Fatalf("expected an unknown refresh token to be rejected")
+	}
+
+	// Log in again for the logout step below.
+	loginResp, loginTokens, err = service.Login(ctx, loginReq, "127.0.0.1", "TestAgent", authResp.DeviceID)
+	if err != nil {
+		t.Fatalf("re-login failed: %v", err)
+	}
+	rotTokens = loginTokens
 
 	// 4. Test Forgot Password
 	forgotReq := &ForgotPasswordRequest{Email: "developer@benchmarq.io"}
