@@ -212,7 +212,7 @@ func (r *postgresRepository) CreateSession(ctx context.Context, session *UserSes
 
 func (r *postgresRepository) GetSessionByRefreshTokenHash(ctx context.Context, tokenHash string) (*UserSession, error) {
 	query := `
-		SELECT id, user_id, device_id, refresh_token_hash, user_agent, ip_address, is_revoked, expires_at, created_at, updated_at,
+		SELECT id, user_id, device_id, refresh_token_hash, user_agent, host(ip_address), is_revoked, expires_at, created_at, updated_at,
 		       previous_refresh_token_hash, rotated_at
 		FROM user_sessions
 		WHERE refresh_token_hash = $1 OR previous_refresh_token_hash = $1

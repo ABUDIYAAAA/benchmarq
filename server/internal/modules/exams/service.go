@@ -418,6 +418,7 @@ func (s *service) UpdateSection(ctx context.Context, m authz.Membership, examID,
 			// Questions are bound to their section's family by a composite FK.
 			return apperr.Validation(map[string]string{"section_type": "section_type cannot be changed after the section is created"})
 		}
+		oldDefault := section.DefaultPoints
 		in.applyTo(section)
 
 		if err := validateSectionWrite(bp.Config, bp.Sections, section); err != nil {
@@ -425,6 +426,13 @@ func (s *service) UpdateSection(ctx context.Context, m authz.Membership, examID,
 		}
 		if err := s.repo.UpdateSection(ctx, section); err != nil {
 			return err
+		}
+		// Questions still carrying the old default follow the new one;
+		// questions whose marks were set individually keep them.
+		if oldDefault != nil && section.DefaultPoints != nil && *oldDefault != *section.DefaultPoints {
+			if err := s.repo.RetargetDefaultPoints(ctx, section.ID, *oldDefault, *section.DefaultPoints); err != nil {
+				return err
+			}
 		}
 		views, err = s.sectionViews(ctx, m.OrgID, examID)
 		return err

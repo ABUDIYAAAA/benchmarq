@@ -2,6 +2,7 @@ package attempts
 
 import (
 	"context"
+	"io"
 	"net"
 	"net/http"
 	"strings"
@@ -52,6 +53,7 @@ func (h *Handler) RegisterRuntimeRoutes(r chi.Router) {
 		r.Post("/pause", h.Pause)
 		r.Post("/resume", h.Resume)
 		r.Post("/events", h.ReportEvent)
+		r.Post("/snapshots", h.UploadSnapshots)
 		r.Post("/submit", h.Submit)
 	})
 }
@@ -234,6 +236,39 @@ func (h *Handler) ReportEvent(w http.ResponseWriter, r *http.Request) {
 	}
 	result, err := h.service.ReportEvent(r.Context(), sessionFrom(r), clientOf(r), req)
 	respond(w, err, "Event recorded", result)
+}
+
+// UploadSnapshots accepts a multipart form with "webcam" and/or "screen"
+// JPEG parts.
+func (h *Handler) UploadSnapshots(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, 2*MaxSnapshotBytes+64<<10)
+	if err := r.ParseMultipartForm(2 * MaxSnapshotBytes); err != nil {
+		response.Fail(w, apperr.Validation(map[string]string{"body": "expected a multipart form with webcam and/or screen images"}))
+		return
+	}
+	defer r.MultipartForm.RemoveAll()
+
+	var shots []SnapshotUpload
+	for kind := range SnapshotKinds {
+		file, _, err := r.FormFile(kind)
+		if err != nil {
+			continue // each kind is optional
+		}
+		data, err := io.ReadAll(io.LimitReader(file, MaxSnapshotBytes+1))
+		file.Close()
+		if err != nil {
+			response.Fail(w, apperr.Validation(map[string]string{kind: "could not read image"}))
+			return
+		}
+		shots = append(shots, SnapshotUpload{Kind: kind, Data: data})
+	}
+	if len(shots) == 0 {
+		response.Fail(w, apperr.Validation(map[string]string{"body": "include a webcam or screen image"}))
+		return
+	}
+
+	result, err := h.service.SaveSnapshots(r.Context(), sessionFrom(r), clientOf(r), shots)
+	respond(w, err, "Snapshots saved", result)
 }
 
 func (h *Handler) Submit(w http.ResponseWriter, r *http.Request) {

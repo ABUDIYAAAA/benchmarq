@@ -53,6 +53,7 @@ type SectionInput struct {
 	SectionType        SectionType         `json:"section_type" validate:"required,oneof=objective subjective"`
 	DurationMinutes    *int                `json:"duration_minutes" validate:"omitempty,gte=1,lte=1440"`
 	MarksWeightage     *float64            `json:"marks_weightage" validate:"omitempty,gte=0,lte=1000"`
+	DefaultPoints      *float64            `json:"default_points" validate:"omitempty,gt=0,lte=1000"`
 	CutoffMarks        *float64            `json:"cutoff_marks" validate:"omitempty,gte=0"`
 	ShuffleQuestions   *bool               `json:"shuffle_questions"`
 	ShuffleOptions     *bool               `json:"shuffle_options"`
@@ -79,6 +80,7 @@ func sectionInputFrom(s *Section) SectionInput {
 		SectionType:        s.SectionType,
 		DurationMinutes:    s.DurationMinutes,
 		MarksWeightage:     s.MarksWeightage,
+		DefaultPoints:      s.DefaultPoints,
 		CutoffMarks:        s.CutoffMarks,
 		ShuffleQuestions:   s.ShuffleQuestions,
 		ShuffleOptions:     s.ShuffleOptions,
@@ -96,6 +98,7 @@ func (in SectionInput) applyTo(s *Section) {
 	s.SectionType = in.SectionType
 	s.DurationMinutes = in.DurationMinutes
 	s.MarksWeightage = in.MarksWeightage
+	s.DefaultPoints = in.DefaultPoints
 	s.CutoffMarks = in.CutoffMarks
 	s.ShuffleQuestions = in.ShuffleQuestions
 	s.ShuffleOptions = in.ShuffleOptions

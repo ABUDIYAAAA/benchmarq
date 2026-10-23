@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import Box from "@mui/material/Box";
@@ -12,9 +12,16 @@ import AuthField from "@/components/auth/AuthField";
 import AuthButton from "@/components/auth/AuthButton";
 import AuthFeedback from "@/components/auth/AuthFeedback";
 import { useSignUpMutation, getApiErrorMessage } from "@/hooks/api/useAuth";
+import { useAuth } from "@/context/AuthContext";
 
 export default function SignUpPage() {
   const router = useRouter();
+  const { isAuthenticated } = useAuth();
+
+  // Signed-in users (including right after signing up) belong on the dashboard.
+  useEffect(() => {
+    if (isAuthenticated) router.replace("/dashboard");
+  }, [isAuthenticated, router]);
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",

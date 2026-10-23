@@ -3,13 +3,20 @@
 import { createContext, useContext, useState, useMemo, useCallback } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { useMyOrganizations, useCreateOrganizationMutation, orgKeys } from "@/hooks/api/useOrgs";
+import { useAuth } from "@/context/AuthContext";
 
 const OrgContext = createContext(null);
 const STORAGE_KEY = "benchmarq_active_org_id";
 
 export function OrgProvider({ children }) {
   const queryClient = useQueryClient();
-  const { data: organizations = [], isLoading: isLoadingOrgs, refetch: refetchOrgs } = useMyOrganizations();
+  const { isAuthenticated } = useAuth();
+  // Organizations only exist for signed-in users; skipping the request on
+  // public pages avoids a pointless 401 and token refresh.
+  const { data: organizations = [], isPending, refetch: refetchOrgs } = useMyOrganizations({ enabled: isAuthenticated });
+  // Until the list has been fetched once, "no organizations" is unknown, not
+  // empty: treating it as empty flashes the create-organization screen.
+  const isLoadingOrgs = isAuthenticated && isPending;
 
   const [selectedOrgId, setSelectedOrgId] = useState(() => {
     if (typeof window !== "undefined") {

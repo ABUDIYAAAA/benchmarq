@@ -19,8 +19,9 @@ var (
 
 // SectionRef is the minimal context needed to author questions in a section.
 type SectionRef struct {
-	ExamStatus  exams.ExamStatus
-	SectionType exams.SectionType
+	ExamStatus    exams.ExamStatus
+	SectionType   exams.SectionType
+	DefaultPoints *float64
 }
 
 type Repository interface {
@@ -57,7 +58,7 @@ func (r *postgresRepository) GetSection(ctx context.Context, orgID, examID, sect
 
 func (r *postgresRepository) section(ctx context.Context, orgID, examID, sectionID uuid.UUID, lock bool) (*SectionRef, error) {
 	query := `
-		SELECT e.status, s.section_type
+		SELECT e.status, s.section_type, s.default_points::float8
 		FROM exams e
 		JOIN exam_sections s ON s.exam_id = e.id
 		WHERE e.id = $1 AND e.org_id = $2 AND e.deleted_at IS NULL AND s.id = $3
@@ -66,7 +67,7 @@ func (r *postgresRepository) section(ctx context.Context, orgID, examID, section
 		query += ` FOR UPDATE OF e`
 	}
 	var ref SectionRef
-	if err := database.Conn(ctx, r.db).QueryRow(ctx, query, examID, orgID, sectionID).Scan(&ref.ExamStatus, &ref.SectionType); err != nil {
+	if err := database.Conn(ctx, r.db).QueryRow(ctx, query, examID, orgID, sectionID).Scan(&ref.ExamStatus, &ref.SectionType, &ref.DefaultPoints); err != nil {
 		if database.IsNoRows(err) {
 			return nil, ErrSectionNotFound
 		}

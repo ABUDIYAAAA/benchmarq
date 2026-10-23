@@ -13,6 +13,7 @@ import (
 	"github.com/ABUDIYAAAA/benchmarq/internal/modules/exams"
 	"github.com/ABUDIYAAAA/benchmarq/internal/modules/organizations"
 	"github.com/ABUDIYAAAA/benchmarq/internal/modules/questions"
+	"github.com/ABUDIYAAAA/benchmarq/internal/storage"
 	"github.com/ABUDIYAAAA/benchmarq/pkg/utils/request"
 	"github.com/ABUDIYAAAA/benchmarq/pkg/utils/response"
 	"github.com/go-chi/chi/v5"
@@ -109,6 +110,20 @@ func NewAttemptService(appCfg *config.AppConfig) attempts.Service {
 		questions.NewRepository(appCfg.DB),
 		database.NewTransactor(appCfg.DB),
 		appCfg.Logger,
-		attempts.Options{DesktopLaunchURL: appCfg.Config.DesktopLaunchURL},
+		attempts.Options{DesktopLaunchURL: appCfg.Config.DesktopLaunchURL, Snapshots: snapshotStore(appCfg)},
 	)
+}
+
+// snapshotStore opens the local snapshot directory. If it cannot be created
+// the server still runs, with snapshot uploads disabled.
+func snapshotStore(appCfg *config.AppConfig) storage.SnapshotStore {
+	if appCfg.Config.SnapshotDir == "" {
+		return nil
+	}
+	store, err := storage.NewLocalSnapshotStore(appCfg.Config.SnapshotDir)
+	if err != nil {
+		appCfg.Logger.Error("Snapshot storage unavailable; uploads disabled", "dir", appCfg.Config.SnapshotDir, "error", err)
+		return nil
+	}
+	return store
 }

@@ -42,13 +42,13 @@ const numOrNull = (v) => (v === "" || v == null ? null : Number(v));
 const str = (v) => (v == null ? "" : String(v));
 
 /** Form state from an existing question (or defaults for a new one). */
-function initialForm(question, sectionType) {
+function initialForm(question, sectionType, defaultPoints) {
   const q = question ?? {};
   return {
     type: q.type ?? TYPES_BY_SECTION[sectionType][0],
     prompt: q.prompt ?? "",
     explanation: q.explanation ?? "",
-    points: str(q.points ?? 1),
+    points: str(q.points ?? defaultPoints ?? 1),
     negative_points: str(q.negative_points ?? 0),
     options: q.options?.map((o) => ({ content: o.content, is_correct: o.is_correct, is_pinned: o.is_pinned })) ?? [
       { content: "", is_correct: true, is_pinned: false },
@@ -110,8 +110,8 @@ function toPayload(f) {
   return body;
 }
 
-export default function QuestionDialog({ open, onClose, sectionType, question, onSave }) {
-  const [form, setForm] = useState(() => initialForm(question, sectionType));
+export default function QuestionDialog({ open, onClose, sectionType, defaultPoints, question, onSave }) {
+  const [form, setForm] = useState(() => initialForm(question, sectionType, defaultPoints));
   const [error, setError] = useState(null);
   const [saving, setSaving] = useState(false);
   const set = (key) => (e) => setForm((f) => ({ ...f, [key]: e.target.value }));
@@ -155,7 +155,15 @@ export default function QuestionDialog({ open, onClose, sectionType, question, o
                   </MenuItem>
                 ))}
               </TextField>
-              <TextField label="Marks" type="number" value={form.points} onChange={set("points")} required slotProps={{ htmlInput: { min: 0.25, step: 0.25 } }} />
+              <TextField
+                label="Marks"
+                type="number"
+                value={form.points}
+                onChange={set("points")}
+                required
+                slotProps={{ htmlInput: { min: 0.25, step: 0.25 } }}
+                helperText={defaultPoints != null ? `Section default: ${defaultPoints}` : undefined}
+              />
               {sectionType === "objective" && (
                 <TextField
                   label="Negative marks"

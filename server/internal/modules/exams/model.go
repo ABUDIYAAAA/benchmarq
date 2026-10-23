@@ -149,7 +149,9 @@ type Section struct {
 	// the exam has per_section_timing enabled.
 	DurationMinutes *int     `json:"duration_minutes,omitempty" db:"duration_minutes"`
 	MarksWeightage  *float64 `json:"marks_weightage,omitempty" db:"marks_weightage"`
-	CutoffMarks     *float64 `json:"cutoff_marks,omitempty" db:"cutoff_marks"`
+	// DefaultPoints are the marks new questions get when none are given.
+	DefaultPoints *float64 `json:"default_points,omitempty" db:"default_points"`
+	CutoffMarks   *float64 `json:"cutoff_marks,omitempty" db:"cutoff_marks"`
 
 	ShuffleQuestions  *bool `json:"shuffle_questions" db:"shuffle_questions"`
 	ShuffleOptions    *bool `json:"shuffle_options" db:"shuffle_options"`

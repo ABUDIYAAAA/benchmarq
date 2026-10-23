@@ -5,6 +5,9 @@
   <!-- Required by the V8 JIT under the hardened runtime. -->
   <key>com.apple.security.cs.allow-jit</key>
   <true/>
+  <!-- Proctoring snapshots use the camera. -->
+  <key>com.apple.security.device.camera</key>
+  <true/>
   <!-- Deliberately absent: allow-dyld-environment-variables, disable-library-validation,
        get-task-allow. Without them code cannot be injected into the app. -->
 </dict>

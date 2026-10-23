@@ -10,11 +10,12 @@
     "start": "electron .",
     "dev": "BENCHMARQ_APP_URL=http://localhost:3000 BENCHMARQ_API_URL=http://localhost:8000/api/v1 electron .",
     "launch:dev": "electron . \"benchmarq://launch?code=$CODE\"",
-    "lint": "node --check src/main/*.js src/main/integrity/*.js src/preload/*.js",
+    "lint": "node --check src/main/*.js src/main/integrity/*.js src/preload/*.js src/capture/*.js",
     "test": "node --test test/*.test.js",
-    "dist": "electron-builder",
-    "dist:mac": "electron-builder --mac",
-    "dist:win": "electron-builder --win"
+    "dist": "node scripts/write-app-config.js && electron-builder",
+    "dist:mac": "node scripts/write-app-config.js && electron-builder --mac",
+    "dist:win": "node scripts/write-app-config.js && electron-builder --win",
+    "dist:mac:dev": "BENCHMARQ_APP_URL=http://localhost:3000 BENCHMARQ_API_URL=http://localhost:8000/api/v1 node scripts/write-app-config.js && electron-builder --mac dmg --arm64 -c.mac.identity=- -c.mac.hardenedRuntime=false"
   },
   "devDependencies": {
     "@electron/fuses": "^2.1.3",
@@ -42,7 +43,10 @@
       "category": "public.app-category.education",
       "hardenedRuntime": true,
       "entitlements": "build/entitlements.mac.plist",
-      "entitlementsInherit": "build/entitlements.mac.plist"
+      "entitlementsInherit": "build/entitlements.mac.plist",
+      "extendInfo": {
+        "NSCameraUsageDescription": "Benchmarq Exam takes periodic camera snapshots to proctor the exam."
+      }
     },
     "win": {
       "target": "nsis"
@@ -53,6 +57,9 @@
     },
     "linux": {
       "target": "AppImage"
+    },
+    "dmg": {
+      "title": "Benchmarq Exam"
     }
   }
 }

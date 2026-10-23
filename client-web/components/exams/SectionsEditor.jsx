@@ -165,6 +165,7 @@ function SectionQuestions({ orgId, examId, section, editable, onEdit, onDelete }
 
   const eff = section.effective ?? {};
   const facts = [
+    section.default_points != null ? `${section.default_points} marks per question by default` : null,
     eff.duration_minutes ? `${eff.duration_minutes} min limit` : "Shares the exam timer",
     eff.question_pick_count ? `${eff.question_pick_count} drawn per candidate` : null,
     eff.shuffle_questions ? "Questions shuffled" : null,
@@ -267,7 +268,14 @@ function SectionQuestions({ orgId, examId, section, editable, onEdit, onDelete }
       )}
 
       {dialog && (
-        <QuestionDialog open sectionType={section.section_type} question={dialog.question} onSave={save} onClose={() => setDialog(null)} />
+        <QuestionDialog
+          open
+          sectionType={section.section_type}
+          defaultPoints={section.default_points ?? null}
+          question={dialog.question}
+          onSave={save}
+          onClose={() => setDialog(null)}
+        />
       )}
       <ConfirmDialog
         open={Boolean(deleting)}

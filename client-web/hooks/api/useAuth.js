@@ -48,13 +48,17 @@ export function useLoginMutation(options = {}) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    ...options,
     mutationFn: (credentials) => authApi.login(credentials),
     onSuccess: (data, variables, context) => {
       queryClient.setQueryData(authKeys.me(), data.data?.user || null);
       queryClient.invalidateQueries({ queryKey: authKeys.me() });
+      // Another account may have used this tab: refetch everything else
+      // (organizations, exams...) for the new user. Reset, not remove, so
+      // mounted queries keep working.
+      queryClient.resetQueries({ predicate: (q) => q.queryKey[0] !== authKeys.all[0] });
       options.onSuccess?.(data, variables, context);
     },
-    ...options,
   });
 }
 
@@ -65,13 +69,17 @@ export function useSignUpMutation(options = {}) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    ...options,
     mutationFn: (payload) => authApi.signup(payload),
     onSuccess: (data, variables, context) => {
       queryClient.setQueryData(authKeys.me(), data.data?.user || null);
       queryClient.invalidateQueries({ queryKey: authKeys.me() });
+      // Another account may have used this tab: refetch everything else
+      // (organizations, exams...) for the new user. Reset, not remove, so
+      // mounted queries keep working.
+      queryClient.resetQueries({ predicate: (q) => q.queryKey[0] !== authKeys.all[0] });
       options.onSuccess?.(data, variables, context);
     },
-    ...options,
   });
 }
 
@@ -82,13 +90,13 @@ export function useLogoutMutation(options = {}) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    ...options,
     mutationFn: () => authApi.logout(),
     onSuccess: (data, variables, context) => {
       queryClient.setQueryData(authKeys.me(), null);
       queryClient.removeQueries({ queryKey: authKeys.all });
       options.onSuccess?.(data, variables, context);
     },
-    ...options,
   });
 }
 
@@ -97,8 +105,8 @@ export function useLogoutMutation(options = {}) {
  */
 export function useForgotPasswordMutation(options = {}) {
   return useMutation({
-    mutationFn: (payload) => authApi.forgotPassword(payload),
     ...options,
+    mutationFn: (payload) => authApi.forgotPassword(payload),
   });
 }
 
@@ -109,13 +117,13 @@ export function useResetPasswordMutation(options = {}) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    ...options,
     mutationFn: (payload) => authApi.resetPassword(payload),
     onSuccess: (data, variables, context) => {
       queryClient.setQueryData(authKeys.me(), null);
       queryClient.removeQueries({ queryKey: authKeys.all });
       options.onSuccess?.(data, variables, context);
     },
-    ...options,
   });
 }
 
@@ -126,12 +134,12 @@ export function useVerifyEmailMutation(options = {}) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    ...options,
     mutationFn: (payload) => authApi.verifyEmail(payload),
     onSuccess: (data, variables, context) => {
       queryClient.invalidateQueries({ queryKey: authKeys.me() });
       options.onSuccess?.(data, variables, context);
     },
-    ...options,
   });
 }
 
@@ -140,8 +148,8 @@ export function useVerifyEmailMutation(options = {}) {
  */
 export function useResendVerificationMutation(options = {}) {
   return useMutation({
-    mutationFn: () => authApi.resendVerification(),
     ...options,
+    mutationFn: () => authApi.resendVerification(),
   });
 }
 

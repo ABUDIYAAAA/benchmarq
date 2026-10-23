@@ -43,6 +43,8 @@ type Repository interface {
 	ShiftSections(ctx context.Context, examID uuid.UUID, from, delta int) error
 	SetSectionOrder(ctx context.Context, examID uuid.UUID, ordered []uuid.UUID) error
 	ReplacePrerequisites(ctx context.Context, sectionID uuid.UUID, prereqs []Prerequisite) error
+	// RetargetDefaultPoints moves questions at the old default marks to the new default.
+	RetargetDefaultPoints(ctx context.Context, sectionID uuid.UUID, from, to float64) error
 	SectionStats(ctx context.Context, examID uuid.UUID) (map[uuid.UUID]SectionStats, error)
 }
 
@@ -384,6 +386,18 @@ func (r *postgresRepository) ReplacePrerequisites(ctx context.Context, sectionID
 	}
 	if err := conn.SendBatch(ctx, batch).Close(); err != nil {
 		return fmt.Errorf("insert prerequisites: %w", err)
+	}
+	return nil
+}
+
+func (r *postgresRepository) RetargetDefaultPoints(ctx context.Context, sectionID uuid.UUID, from, to float64) error {
+	_, err := database.Conn(ctx, r.db).Exec(ctx, `
+		UPDATE questions
+		SET points = $3, updated_at = now()
+		WHERE section_id = $1 AND points = $2 AND negative_points <= $3
+	`, sectionID, from, to)
+	if err != nil {
+		return fmt.Errorf("retarget default points: %w", err)
 	}
 	return nil
 }

@@ -132,6 +132,15 @@ func (s *authService) Login(ctx context.Context, req *LoginRequest, clientIP str
 	}
 
 	// Issue Tokens and Session
+	// Invitations sent to this address while the user already had an account
+	// are joined on login. Only verified addresses claim invitations, as on
+	// email verification.
+	if user.IsEmailVerified {
+		if err := s.repo.ClaimPendingInvitations(ctx, user.Email, user.ID); err != nil {
+			s.logger.Warn("Failed linking pending invitations on login", "user_id", user.ID, "error", err)
+		}
+	}
+
 	tokens, err := s.createSessionAndTokens(ctx, user, deviceID, clientIP, userAgent)
 	if err != nil {
 		return nil, nil, err

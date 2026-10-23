@@ -85,6 +85,7 @@ func (s *service) Create(ctx context.Context, scope Scope, req CreateQuestionReq
 		if err != nil {
 			return err
 		}
+		withDefaultPoints(&req.QuestionInput, ref)
 		if fields := Validate(ref.SectionType, &req.QuestionInput); len(fields) > 0 {
 			return apperr.Validation(fields)
 		}
@@ -127,6 +128,7 @@ func (s *service) Replace(ctx context.Context, scope Scope, questionID uuid.UUID
 		if err != nil {
 			return err
 		}
+		withDefaultPoints(&in, ref)
 		if fields := Validate(ref.SectionType, &in); len(fields) > 0 {
 			return apperr.Validation(fields)
 		}

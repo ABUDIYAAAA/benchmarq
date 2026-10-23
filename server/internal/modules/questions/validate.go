@@ -24,7 +24,7 @@ func Validate(sectionType exams.SectionType, in *QuestionInput) map[string]strin
 	if strings.TrimSpace(in.Prompt) == "" {
 		errs["prompt"] = "prompt cannot be blank"
 	}
-	if in.NegativePoints > in.Points {
+	if in.NegativePoints > pointsOf(in) {
 		errs["negative_points"] = "negative_points cannot exceed points"
 	}
 
@@ -88,18 +88,11 @@ func validateOptions(options []OptionInput, errs map[string]string) {
 		errs["options"] = fmt.Sprintf("provide between %d and %d options", minOptions, maxOptions)
 		return
 	}
-	seen := make(map[string]int, len(options))
+	// Duplicate option text is allowed: authors may repeat options on purpose.
 	for i, o := range options {
-		key := normalize(o.Content)
-		if key == "" {
+		if strings.TrimSpace(o.Content) == "" {
 			errs[fmt.Sprintf("options[%d].content", i)] = "option content cannot be blank"
-			continue
 		}
-		if first, dup := seen[key]; dup {
-			errs[fmt.Sprintf("options[%d].content", i)] = fmt.Sprintf("duplicates option %d", first+1)
-			continue
-		}
-		seen[key] = i
 	}
 }
 
@@ -166,8 +159,4 @@ func countCorrect(options []OptionInput) int {
 		}
 	}
 	return n
-}
-
-func normalize(s string) string {
-	return strings.ToLower(strings.Join(strings.Fields(s), " "))
 }

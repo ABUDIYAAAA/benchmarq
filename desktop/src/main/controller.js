@@ -5,6 +5,7 @@ const { APP_ORIGIN, APP_SCAN_INTERVAL_MS } = require('./config');
 const { Runtime, RuntimeError } = require('./runtime');
 const { Lockdown } = require('./lockdown');
 const checks = require('./integrity/checks');
+const { SnapshotCapture } = require('./snapshots');
 
 // Development only: skip the pre-exam gate so the app can run next to an
 // editor and terminal. Packaged builds never honour it.
@@ -20,6 +21,7 @@ class ExamController {
     this.win = win;
     this.runtime = new Runtime();
     this.lockdown = new Lockdown(win);
+    this.snapshots = new SnapshotCapture(this.runtime);
     this.scanTimer = null;
     this.ready = Promise.resolve();
     this.bootError = null;
@@ -105,6 +107,7 @@ class ExamController {
 
   #startMonitoring() {
     this.lockdown.activate();
+    this.snapshots.start().catch(() => {});
     if (this.scanTimer || RELAXED) return;
     // Applications opened during the exam are closed without asking: the
     // candidate already agreed to this at the gate.
@@ -115,6 +118,7 @@ class ExamController {
   }
 
   #stopMonitoring() {
+    this.snapshots.stop();
     clearInterval(this.scanTimer);
     this.scanTimer = null;
     this.lockdown.deactivate();

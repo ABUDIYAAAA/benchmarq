@@ -32,6 +32,7 @@ export default function SectionDialog({ open, onClose, section, sections, config
     duration_minutes: str(s.duration_minutes),
     question_pick_count: str(s.question_pick_count),
     cutoff_marks: str(s.cutoff_marks),
+    default_points: str(s.default_points),
     unlock_after_minutes: str(s.unlock_after_minutes),
     lock_on_complete: s.lock_on_complete ?? false,
     shuffle_questions: toTri(s.shuffle_questions),
@@ -58,6 +59,7 @@ export default function SectionDialog({ open, onClose, section, sections, config
       duration_minutes: numOrNull(form.duration_minutes),
       question_pick_count: numOrNull(form.question_pick_count),
       cutoff_marks: numOrNull(form.cutoff_marks),
+      default_points: numOrNull(form.default_points),
       unlock_after_minutes: numOrNull(form.unlock_after_minutes),
       lock_on_complete: form.lock_on_complete,
       shuffle_questions: fromTri(form.shuffle_questions),
@@ -95,6 +97,19 @@ export default function SectionDialog({ open, onClose, section, sections, config
               <MenuItem value="subjective">Subjective — written answers, graded manually</MenuItem>
             </TextField>
             <TextField label="Instructions" value={form.instructions} onChange={set("instructions")} multiline minRows={2} />
+
+            <TextField
+              label="Default marks per question"
+              type="number"
+              value={form.default_points}
+              onChange={set("default_points")}
+              slotProps={{ htmlInput: { min: 0.25, step: 0.25 } }}
+              helperText={
+                section
+                  ? "New questions start with these marks. Questions still at the old default are updated; questions you changed keep their marks."
+                  : "New questions in this section start with these marks; you can change them per question."
+              }
+            />
 
             <Typography sx={{ fontWeight: 600, fontSize: "0.875rem", pt: 1 }}>Timing and access</Typography>
             <Stack direction="row" spacing={2}>

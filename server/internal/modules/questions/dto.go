@@ -11,11 +11,12 @@ import (
 // create (POST) and replace (PUT): a question is small and self-contained, so
 // whole-document replacement is simpler and safer than field-level patches.
 type QuestionInput struct {
-	Type           QuestionType `json:"type" validate:"required,oneof=multiple_choice true_false multi_select blank_fill short_answer essay"`
-	Prompt         string       `json:"prompt" validate:"required,max=20000"`
-	Explanation    *string      `json:"explanation" validate:"omitempty,max=20000"`
-	Points         float64      `json:"points" validate:"gt=0,lte=1000"`
-	NegativePoints float64      `json:"negative_points" validate:"gte=0,lte=1000"`
+	Type        QuestionType `json:"type" validate:"required,oneof=multiple_choice true_false multi_select blank_fill short_answer essay"`
+	Prompt      string       `json:"prompt" validate:"required,max=20000"`
+	Explanation *string      `json:"explanation" validate:"omitempty,max=20000"`
+	// Points defaults to the section's default marks (or 1) when omitted.
+	Points         *float64 `json:"points" validate:"omitempty,gt=0,lte=1000"`
+	NegativePoints float64  `json:"negative_points" validate:"gte=0,lte=1000"`
 
 	Options     []OptionInput     `json:"options" validate:"omitempty,max=26,dive"`
 	TrueFalse   *TrueFalseInput   `json:"true_false"`
@@ -80,7 +81,7 @@ func build(in *QuestionInput, sectionType exams.SectionType) *Question {
 		Type:           in.Type,
 		Prompt:         strings.TrimSpace(in.Prompt),
 		Explanation:    trimmedOrNil(in.Explanation),
-		Points:         in.Points,
+		Points:         pointsOf(in),
 		NegativePoints: in.NegativePoints,
 	}
 
@@ -167,4 +168,28 @@ func trimAll(list []string) []string {
 		out = append(out, strings.TrimSpace(s))
 	}
 	return out
+}
+
+// fallbackPoints is used when neither the question nor its section sets marks.
+const fallbackPoints = 1.0
+
+// pointsOf returns the question's marks; the service fills in the section
+// default before validation, so nil only remains in direct unit use.
+func pointsOf(in *QuestionInput) float64 {
+	if in.Points == nil {
+		return fallbackPoints
+	}
+	return *in.Points
+}
+
+// withDefaultPoints fills in omitted marks from the section default.
+func withDefaultPoints(in *QuestionInput, ref *SectionRef) {
+	if in.Points != nil {
+		return
+	}
+	p := fallbackPoints
+	if ref.DefaultPoints != nil {
+		p = *ref.DefaultPoints
+	}
+	in.Points = &p
 }

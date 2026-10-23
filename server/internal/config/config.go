@@ -18,6 +18,9 @@ type Config struct {
 	// DesktopLaunchURL is the deep link that opens the exam desktop app.
 	DesktopLaunchURL string `env:"DESKTOP_LAUNCH_URL" envDefault:"benchmarq://launch"`
 
+	// SnapshotDir is where proctoring snapshots (webcam and screen) are stored.
+	SnapshotDir string `env:"SNAPSHOT_DIR" envDefault:"storage/snapshots"`
+
 	// JWT Configuration
 	JWTSecret              string `env:"JWT_SECRET" envDefault:"benchmarq_super_secret_jwt_key_change_in_prod_12345"`
 	JWTAccessExpiryMinutes int    `env:"JWT_ACCESS_EXPIRY_MINUTES" envDefault:"15"`

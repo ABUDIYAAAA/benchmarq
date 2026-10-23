@@ -212,7 +212,9 @@ func setupServerWithMail(t *testing.T) (*httptest.Server, *pgxpool.Pool, *outbox
 		AllowedOrigins:         []string{"http://localhost:3000"},
 		TrustedProxies:         []string{"127.0.0.0/8", "::1/128"},
 		Environment:            "test",
+		SnapshotDir:            filepath.Join(t.TempDir(), "snapshots"),
 	}
+	testSnapshotDir = cfg.SnapshotDir
 	mail := &outbox{}
 	srv := httptest.NewServer(NewRouter(config.NewAppConfig(cfg, logger.NewErrorLogger(), mail, pool)))
 	t.Cleanup(srv.Close)

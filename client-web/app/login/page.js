@@ -12,6 +12,8 @@ import AuthField from "@/components/auth/AuthField";
 import AuthButton from "@/components/auth/AuthButton";
 import AuthFeedback from "@/components/auth/AuthFeedback";
 import { useLoginMutation, getApiErrorMessage } from "@/hooks/api/useAuth";
+import { useAuth } from "@/context/AuthContext";
+import { safeRedirect } from "@/lib/redirect";
 
 function LoginForm() {
   const router = useRouter();
@@ -19,6 +21,13 @@ function LoginForm() {
   const isRegisteredParam = searchParams.get("registered") === "true";
   const emailParam = searchParams.get("email") || "";
   const redirectParam = searchParams.get("redirect") || "";
+  const { isAuthenticated } = useAuth();
+
+  // Already signed in (e.g. the session was restored by a token refresh):
+  // there is nothing to do here.
+  useEffect(() => {
+    if (isAuthenticated) router.replace(safeRedirect(redirectParam));
+  }, [isAuthenticated, redirectParam, router]);
 
   const [formData, setFormData] = useState({
     email: emailParam,
@@ -37,7 +46,7 @@ function LoginForm() {
 
   const loginMutation = useLoginMutation({
     onSuccess: () => {
-      router.push(redirectParam || "/dashboard");
+      router.push(safeRedirect(redirectParam));
     },
     onError: (error) => {
       setFeedback({

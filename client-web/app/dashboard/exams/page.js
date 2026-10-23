@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Container from "@mui/material/Container";
@@ -21,6 +22,7 @@ import { can } from "@/lib/permissions";
 
 export default function ExamsPage() {
   const { currentOrg } = useOrg();
+  const router = useRouter();
   const [status, setStatus] = useState("");
   const [search, setSearch] = useState("");
   const [cursors, setCursors] = useState([]); // stack of cursors for previous pages
@@ -114,11 +116,12 @@ export default function ExamsPage() {
                 <TableCell>Status</TableCell>
                 <TableCell align="right">Total marks</TableCell>
                 <TableCell>Created</TableCell>
+                <TableCell align="right" />
               </TableRow>
             </TableHead>
             <TableBody>
               {items.map((exam) => (
-                <TableRow key={exam.id} hover>
+                <TableRow key={exam.id} hover onClick={() => router.push(`/dashboard/exams/${exam.id}`)} sx={{ cursor: "pointer" }}>
                   <TableCell>
                     <Link href={`/dashboard/exams/${exam.id}`} style={{ color: "inherit", fontWeight: 500 }}>
                       {exam.title}
@@ -133,6 +136,11 @@ export default function ExamsPage() {
                   <TableCell align="right">{exam.status === "draft" ? "—" : exam.total_marks}</TableCell>
                   <TableCell>
                     <Typography variant="body2">{formatDateTime(exam.created_at)}</Typography>
+                  </TableCell>
+                  <TableCell align="right">
+                    <Button size="small" variant="outlined" component={Link} href={`/dashboard/exams/${exam.id}`} onClick={(e) => e.stopPropagation()}>
+                      {exam.status === "draft" && can(role, "authorExams") ? "Edit" : "Open"}
+                    </Button>
                   </TableCell>
                 </TableRow>
               ))}

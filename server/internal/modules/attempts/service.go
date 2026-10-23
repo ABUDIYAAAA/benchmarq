@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/ABUDIYAAAA/benchmarq/internal/storage"
 	"log/slog"
 	"net/netip"
 	"slices"
@@ -41,6 +42,8 @@ type Options struct {
 	// DesktopLaunchURL is the deep link that opens the desktop app; the
 	// launch code is appended as ?code=.
 	DesktopLaunchURL string
+	// Snapshots stores proctoring images; nil disables snapshot uploads.
+	Snapshots storage.SnapshotStore
 }
 
 type Service interface {
@@ -62,6 +65,7 @@ type Service interface {
 	Pause(ctx context.Context, sess *Session, c Client) (*AttemptView, error)
 	Resume(ctx context.Context, sess *Session, c Client) (*AttemptView, error)
 	ReportEvent(ctx context.Context, sess *Session, c Client, req EventRequest) (*EventResult, error)
+	SaveSnapshots(ctx context.Context, sess *Session, c Client, shots []SnapshotUpload) (*SnapshotResult, error)
 	Submit(ctx context.Context, sess *Session, c Client) (*AttemptView, error)
 
 	// Staff
@@ -86,6 +90,7 @@ type service struct {
 	logger    *slog.Logger
 	opts      Options
 	now       func() time.Time
+	snapshots snapshotThrottle
 }
 
 func NewService(repo Repository, examRepo exams.Repository, questionRepo questions.Repository, tx database.Transactor, logger *slog.Logger, opts Options) Service {

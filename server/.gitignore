@@ -1,2 +1,4 @@
 .env
 tmp
+# Proctoring snapshots and other local runtime data
+storage/

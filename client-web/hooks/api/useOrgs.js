@@ -25,6 +25,10 @@ export function extractOrgList(response) {
 
 export function useMyOrganizations(options = {}) {
   return useQuery({
+    // The list carries the user's role in each organization, which another
+    // admin can change at any time: re-check when the user comes back to the tab.
+    refetchOnWindowFocus: true,
+    staleTime: 30 * 1000,
     queryKey: orgKeys.mine(),
     queryFn: async () => {
       const response = await orgsApi.listMine();
@@ -38,6 +42,7 @@ export function useCreateOrganizationMutation(options = {}) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    ...options,
     mutationFn: (payload) => orgsApi.create(payload),
     onSuccess: (data, variables, context) => {
       const createdOrg = data?.data?.id ? data.data : (data?.id ? data : null);
@@ -53,7 +58,6 @@ export function useCreateOrganizationMutation(options = {}) {
       queryClient.invalidateQueries({ queryKey: orgKeys.mine() });
       options.onSuccess?.(data, variables, context);
     },
-    ...options,
   });
 }
 
@@ -87,6 +91,7 @@ export function useCreateInvitationMutation(orgId, options = {}) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    ...options,
     mutationFn: (payload) => orgsApi.createInvitation(orgId, payload),
     onSuccess: (data, variables, context) => {
       const newInv = data?.data?.id ? data.data : (data?.id ? data : null);
@@ -107,7 +112,6 @@ export function useCreateInvitationMutation(orgId, options = {}) {
       });
       options.onSuccess?.(data, variables, context);
     },
-    ...options,
   });
 }
 
@@ -115,6 +119,7 @@ export function useResendInvitationMutation(orgId, options = {}) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    ...options,
     mutationFn: (invitationId) => orgsApi.resendInvitation(orgId, invitationId),
     onSuccess: (data, variables, context) => {
       queryClient.invalidateQueries({
@@ -122,7 +127,6 @@ export function useResendInvitationMutation(orgId, options = {}) {
       });
       options.onSuccess?.(data, variables, context);
     },
-    ...options,
   });
 }
 
@@ -130,6 +134,7 @@ export function useRevokeInvitationMutation(orgId, options = {}) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    ...options,
     mutationFn: (invitationId) => orgsApi.revokeInvitation(orgId, invitationId),
     onSuccess: (data, variables, context) => {
       queryClient.setQueriesData(
@@ -144,7 +149,6 @@ export function useRevokeInvitationMutation(orgId, options = {}) {
       });
       options.onSuccess?.(data, variables, context);
     },
-    ...options,
   });
 }
 
@@ -152,6 +156,7 @@ export function useUpdateMemberRoleMutation(orgId, options = {}) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    ...options,
     mutationFn: ({ userId, role }) => orgsApi.updateMemberRole(orgId, userId, role),
     onSuccess: (data, variables, context) => {
       queryClient.setQueriesData(
@@ -167,7 +172,6 @@ export function useUpdateMemberRoleMutation(orgId, options = {}) {
       queryClient.invalidateQueries({ queryKey: orgKeys.mine() });
       options.onSuccess?.(data, variables, context);
     },
-    ...options,
   });
 }
 
@@ -175,6 +179,7 @@ export function useRemoveMemberMutation(orgId, options = {}) {
   const queryClient = useQueryClient();
 
   return useMutation({
+    ...options,
     mutationFn: (userId) => orgsApi.removeMember(orgId, userId),
     onSuccess: (data, variables, context) => {
       queryClient.setQueriesData(
@@ -188,6 +193,5 @@ export function useRemoveMemberMutation(orgId, options = {}) {
       queryClient.invalidateQueries({ queryKey: orgKeys.mine() });
       options.onSuccess?.(data, variables, context);
     },
-    ...options,
   });
 }

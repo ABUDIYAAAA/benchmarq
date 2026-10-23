@@ -385,20 +385,32 @@ func (s *service) AcceptInvitation(ctx context.Context, userID uuid.UUID, rawTok
 			}
 			return err
 		}
-		switch inv.Status {
-		case InvitationPending:
-		case InvitationExpired:
-			return errInvitationExpired
-		default:
-			return errInvitationInvalid
-		}
-
 		email, err := s.repo.GetUserEmail(ctx, userID)
 		if err != nil {
 			return err
 		}
 		if !strings.EqualFold(email, inv.Email) {
 			return errInvitationWrongEmail
+		}
+
+		switch inv.Status {
+		case InvitationPending:
+		case InvitationAccepted:
+			// Already joined (e.g. claimed automatically on login): opening
+			// the link again just confirms membership.
+			member, err := s.repo.GetMember(ctx, inv.OrgID, userID)
+			if err != nil {
+				return errInvitationInvalid
+			}
+			if org, err = s.repo.GetByID(ctx, inv.OrgID); err != nil {
+				return errInvitationInvalid
+			}
+			role = member.Role
+			return nil
+		case InvitationExpired:
+			return errInvitationExpired
+		default:
+			return errInvitationInvalid
 		}
 
 		if org, err = s.repo.LockByID(ctx, inv.OrgID); err != nil {

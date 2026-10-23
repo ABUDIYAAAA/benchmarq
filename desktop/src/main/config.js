@@ -3,16 +3,26 @@
 const { app } = require('electron');
 
 // Packaged builds ignore environment overrides: otherwise anyone could point
-// the client at a page of their own and hand it the exam bridge.
+// the client at a page of their own and hand it the exam bridge. Their URLs
+// come from app-config.json, written at build time (scripts/write-app-config.js)
+// and sealed inside the integrity-checked app.asar.
 const overridable = !app.isPackaged;
 
-function setting(envName, packagedValue, devValue) {
-  if (overridable && process.env[envName]) return process.env[envName];
-  return app.isPackaged ? packagedValue : devValue;
+let built = {};
+try {
+  built = require('./app-config.json');
+} catch {
+  // not a configured build
 }
 
-const APP_URL = new URL(setting('BENCHMARQ_APP_URL', 'https://app.benchmarq.io', 'http://localhost:3000'));
-const API_URL = setting('BENCHMARQ_API_URL', 'https://api.benchmarq.io/api/v1', 'http://localhost:8000/api/v1').replace(/\/+$/, '');
+function setting(envName, key, packagedValue, devValue) {
+  if (overridable && process.env[envName]) return process.env[envName];
+  if (app.isPackaged) return built[key] || packagedValue;
+  return devValue;
+}
+
+const APP_URL = new URL(setting('BENCHMARQ_APP_URL', 'appUrl', 'https://app.benchmarq.io', 'http://localhost:3000'));
+const API_URL = setting('BENCHMARQ_API_URL', 'apiUrl', 'https://api.benchmarq.io/api/v1', 'http://localhost:8000/api/v1').replace(/\/+$/, '');
 
 const PROTOCOL = 'benchmarq';
 
@@ -68,5 +78,8 @@ module.exports = {
   BLOCKED_PROCESSES,
   NO_LOCKDOWN,
   APP_SCAN_INTERVAL_MS: 15_000,
+  // Proctoring snapshots: webcam + screen every 30 s, JPEG quality 20 (0.2).
+  SNAPSHOT_INTERVAL_MS: 30_000,
+  SNAPSHOT_JPEG_QUALITY: 20,
   REQUEST_TIMEOUT_MS: 15_000,
 };

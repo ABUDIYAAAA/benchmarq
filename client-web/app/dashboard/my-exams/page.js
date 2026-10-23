@@ -46,7 +46,7 @@ export default function MyExamsPage() {
     setLaunching(exam.exam_id);
     try {
       const grant = await examsApi.launch(exam.exam_id);
-      setLaunched(exam.title);
+      setLaunched({ title: exam.title, url: grant.launch_url });
       window.location.assign(grant.launch_url); // opens the desktop app via benchmarq://
     } catch (err) {
       showError(apiError(err, "Could not launch the exam.").message);
@@ -62,10 +62,15 @@ export default function MyExamsPage() {
       {launched && (
         <Panel sx={{ mb: 3 }}>
           <Box sx={{ px: 3, py: 2 }}>
-            <Typography sx={{ fontWeight: 600 }}>Opening {launched} in Benchmarq Exam</Typography>
+            <Typography sx={{ fontWeight: 600 }}>Opening {launched.title} in Benchmarq Exam</Typography>
             <Typography variant="body2" sx={{ mt: 0.5 }}>
               If nothing happens, install Benchmarq Exam and press Launch again. Each launch link works once and expires after a few minutes.
             </Typography>
+            {process.env.NODE_ENV !== "production" && (
+              <Typography variant="body2" sx={{ mt: 1, fontFamily: "monospace", userSelect: "all", wordBreak: "break-all" }}>
+                {launched.url}
+              </Typography>
+            )}
           </Box>
         </Panel>
       )}

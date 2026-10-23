@@ -20,12 +20,15 @@ export function AuthProvider({ children }) {
 
   // A failed token refresh ends the session everywhere in the app.
   useEffect(() => {
-    // Visitors on public pages were never signed in; only redirect when a
-    // known user just lost their session.
+    // Visitors on public pages were never signed in: their /me request just
+    // fails normally, so there is nothing to do. For a signed-in user, mark
+    // them signed out (rather than clearing the cache, which would leave
+    // mounted queries stuck loading) and send them to sign in.
     const onExpired = () => {
-      const wasSignedIn = Boolean(queryClient.getQueryData(authKeys.me()));
-      queryClient.clear();
-      if (wasSignedIn) router.push("/login");
+      if (!queryClient.getQueryData(authKeys.me())) return;
+      queryClient.setQueryData(authKeys.me(), null);
+      queryClient.removeQueries({ predicate: (q) => q.queryKey[0] !== authKeys.all[0] && !q.getObserversCount() });
+      router.push("/login");
     };
     window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);

@@ -119,6 +119,22 @@ class Runtime extends EventEmitter {
     return this.#setAttempt(await this.#request('POST', '/runtime/submit'));
   }
 
+  /**
+   * Uploads proctoring snapshots (JPEG Buffers). Failures are swallowed: a
+   * missed snapshot must never interrupt the exam.
+   */
+  async uploadSnapshots({ webcam, screen }) {
+    if (!this.attemptRunning()) return null;
+    const form = new FormData();
+    if (webcam) form.append('webcam', new Blob([webcam], { type: 'image/jpeg' }), 'webcam.jpg');
+    if (screen) form.append('screen', new Blob([screen], { type: 'image/jpeg' }), 'screen.jpg');
+    try {
+      return await this.#request('POST', '/runtime/snapshots', form);
+    } catch {
+      return null;
+    }
+  }
+
   /** Reports a proctoring event. Failures are swallowed: they must never break the exam UI. */
   async reportEvent(type, details = {}) {
     if (!EVENT_TYPES.has(type) || !this.attemptRunning()) return null;
@@ -182,7 +198,8 @@ class Runtime extends EventEmitter {
 
   async #request(method, path, body, { auth = true } = {}) {
     const headers = { Accept: 'application/json', 'X-Device-ID': deviceId() };
-    if (body !== undefined) headers['Content-Type'] = 'application/json';
+    const multipart = body instanceof FormData;
+    if (body !== undefined && !multipart) headers['Content-Type'] = 'application/json';
     if (auth) {
       if (!this.session) throw new RuntimeError(401, 'No exam session; launch the exam from the portal');
       headers.Authorization = `Bearer ${this.session.token}`;
@@ -193,7 +210,7 @@ class Runtime extends EventEmitter {
       res = await fetch(API_URL + path, {
         method,
         headers,
-        body: body === undefined ? undefined : JSON.stringify(body),
+        body: body === undefined ? undefined : multipart ? body : JSON.stringify(body),
         signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
         redirect: 'error',
         cache: 'no-store',
