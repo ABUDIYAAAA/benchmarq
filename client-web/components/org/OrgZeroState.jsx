@@ -29,6 +29,7 @@ export default function OrgZeroState() {
   const [slug, setSlug] = useState("");
   const [slugCustomized, setSlugCustomized] = useState(false);
   const [feedback, setFeedback] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleNameChange = (e) => {
     const val = e.target.value;
@@ -52,12 +53,14 @@ export default function OrgZeroState() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await createOrg({
         name: name.trim(),
         slug: slug.trim() || undefined,
       });
     } catch (err) {
+      setIsSubmitting(false);
       setFeedback({
         type: "error",
         message: getApiErrorMessage(err, "Failed to create organization."),
@@ -147,7 +150,7 @@ export default function OrgZeroState() {
 
           <AuthButton
             type="submit"
-            loading={isCreatingOrg}
+            loading={isCreatingOrg || isSubmitting}
             sx={{ mt: 1.5 }}
           >
             Create Workspace

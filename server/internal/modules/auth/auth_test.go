@@ -76,24 +76,31 @@ func (m *mockRepository) CreateSession(ctx context.Context, session *UserSession
 }
 
 func (m *mockRepository) GetSessionByRefreshTokenHash(ctx context.Context, tokenHash string) (*UserSession, error) {
-	session, exists := m.sessions[tokenHash]
-	if !exists {
-		return nil, ErrSessionNotFound
+	for _, sess := range m.sessions {
+		if sess.RefreshTokenHash == tokenHash || (sess.PreviousRefreshTokenHash != nil && *sess.PreviousRefreshTokenHash == tokenHash) {
+			return sess, nil
+		}
 	}
-	return session, nil
+	return nil, ErrSessionNotFound
 }
 
-func (m *mockRepository) UpdateSessionRefreshToken(ctx context.Context, sessionID uuid.UUID, newRefreshTokenHash string, newExpiresAt time.Time) error {
-	for oldHash, sess := range m.sessions {
+func (m *mockRepository) RotateSessionRefreshToken(ctx context.Context, sessionID uuid.UUID, currentHash, newHash string, newExpiresAt time.Time) error {
+	for _, sess := range m.sessions {
 		if sess.ID == sessionID {
-			delete(m.sessions, oldHash)
-			sess.RefreshTokenHash = newRefreshTokenHash
+			if sess.RefreshTokenHash != currentHash || sess.IsRevoked {
+				return ErrSessionRotated
+			}
+			prev := currentHash
+			now := time.Now().UTC()
+			sess.PreviousRefreshTokenHash = &prev
+			sess.RotatedAt = &now
+			sess.RefreshTokenHash = newHash
 			sess.ExpiresAt = newExpiresAt
-			m.sessions[newRefreshTokenHash] = sess
+			m.sessions[newHash] = sess
 			return nil
 		}
 	}
-	return ErrSessionNotFound
+	return ErrSessionRotated
 }
 
 func (m *mockRepository) RevokeSession(ctx context.Context, sessionID uuid.UUID) error {

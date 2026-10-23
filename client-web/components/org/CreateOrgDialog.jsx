@@ -11,6 +11,7 @@ import AuthField from "@/components/auth/AuthField";
 import AuthButton from "@/components/auth/AuthButton";
 import AuthFeedback from "@/components/auth/AuthFeedback";
 import { useOrg } from "@/context/OrgContext";
+import { useToast } from "@/context/ToastContext";
 import { getApiErrorMessage } from "@/hooks/api/useAuth";
 
 function slugify(text) {
@@ -27,6 +28,7 @@ function slugify(text) {
 
 export default function CreateOrgDialog({ open, onClose }) {
   const { createOrg, isCreatingOrg } = useOrg();
+  const { showSuccess } = useToast();
   const [name, setName] = useState("");
   const [slug, setSlug] = useState("");
   const [slugCustomized, setSlugCustomized] = useState(false);
@@ -66,12 +68,14 @@ export default function CreateOrgDialog({ open, onClose }) {
     }
 
     try {
-      await createOrg({
+      const res = await createOrg({
         name: name.trim(),
         slug: slug.trim() || undefined,
         website: website.trim() || undefined,
       });
+      const orgName = res?.name || name.trim();
       handleClose();
+      showSuccess(`Organization "${orgName}" created.`);
     } catch (error) {
       setFeedback({
         type: "error",

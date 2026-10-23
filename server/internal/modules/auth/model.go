@@ -27,6 +27,10 @@ type UserSession struct {
 	IPAddress        *string   `json:"ip_address,omitempty" db:"ip_address"`
 	IsRevoked        bool      `json:"is_revoked" db:"is_revoked"`
 	ExpiresAt        time.Time `json:"expires_at" db:"expires_at"`
+	// PreviousRefreshTokenHash is the token this session last rotated away
+	// from, at RotatedAt.
+	PreviousRefreshTokenHash *string    `json:"-" db:"previous_refresh_token_hash"`
+	RotatedAt                *time.Time `json:"-" db:"rotated_at"`
 }
 
 type EmailVerificationToken struct {

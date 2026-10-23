@@ -49,7 +49,7 @@ func SetAuthCookies(w http.ResponseWriter, cfg *config.Config, accessToken strin
 	http.SetCookie(w, &http.Cookie{
 		Name:     RefreshTokenCookieName,
 		Value:    refreshToken,
-		Path:     "/api/v1/auth",
+		Path:     cfg.CookiePath,
 		Domain:   cfg.CookieDomain,
 		MaxAge:   refreshMaxAge,
 		Expires:  time.Now().Add(time.Duration(refreshMaxAge) * time.Second),
@@ -99,7 +99,7 @@ func SetRefreshTokenCookie(w http.ResponseWriter, cfg *config.Config, refreshTok
 	http.SetCookie(w, &http.Cookie{
 		Name:     RefreshTokenCookieName,
 		Value:    refreshToken,
-		Path:     "/api/v1/auth",
+		Path:     cfg.CookiePath,
 		Domain:   cfg.CookieDomain,
 		MaxAge:   refreshMaxAge,
 		Expires:  time.Now().Add(time.Duration(refreshMaxAge) * time.Second),
@@ -144,7 +144,7 @@ func ClearAuthCookies(w http.ResponseWriter, cfg *config.Config) {
 	http.SetCookie(w, &http.Cookie{
 		Name:     RefreshTokenCookieName,
 		Value:    "",
-		Path:     "/api/v1/auth",
+		Path:     cfg.CookiePath,
 		Domain:   cfg.CookieDomain,
 		MaxAge:   -1,
 		Expires:  time.Unix(0, 0),

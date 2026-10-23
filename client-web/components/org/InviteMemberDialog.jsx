@@ -14,6 +14,7 @@ import AuthField from "@/components/auth/AuthField";
 import AuthButton from "@/components/auth/AuthButton";
 import AuthFeedback from "@/components/auth/AuthFeedback";
 import { useCreateInvitationMutation } from "@/hooks/api/useOrgs";
+import { useToast } from "@/context/ToastContext";
 import { getApiErrorMessage } from "@/hooks/api/useAuth";
 
 const ROLES = [
@@ -23,22 +24,13 @@ const ROLES = [
   { value: "candidate", label: "Candidate", desc: "Take assigned exams and view permitted results" },
 ];
 
-export default function InviteMemberDialog({ open, onClose, org }) {
+export default function InviteMemberDialog({ open, onClose, org, onSuccess }) {
+  const { showSuccess } = useToast();
   const [email, setEmail] = useState("");
   const [role, setRole] = useState("instructor");
   const [feedback, setFeedback] = useState(null);
 
-  const inviteMutation = useCreateInvitationMutation(org?.id, {
-    onSuccess: () => {
-      handleClose();
-    },
-    onError: (error) => {
-      setFeedback({
-        type: "error",
-        message: getApiErrorMessage(error, "Failed to send invitation."),
-      });
-    },
-  });
+  const inviteMutation = useCreateInvitationMutation(org?.id);
 
   const handleClose = () => {
     if (inviteMutation.isPending) return;
@@ -48,17 +40,28 @@ export default function InviteMemberDialog({ open, onClose, org }) {
     onClose();
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!email.trim()) {
+    const cleanEmail = email.trim();
+    if (!cleanEmail) {
       setFeedback({ type: "error", message: "Email address is required." });
       return;
     }
 
-    inviteMutation.mutate({
-      email: email.trim(),
-      role,
-    });
+    try {
+      await inviteMutation.mutateAsync({
+        email: cleanEmail,
+        role,
+      });
+      showSuccess(`Invitation sent to ${cleanEmail} as ${role}.`);
+      handleClose();
+      onSuccess?.(cleanEmail);
+    } catch (error) {
+      setFeedback({
+        type: "error",
+        message: getApiErrorMessage(error, "Failed to send invitation."),
+      });
+    }
   };
 
   return (
@@ -176,7 +179,7 @@ export default function InviteMemberDialog({ open, onClose, org }) {
             type="submit"
             loading={inviteMutation.isPending}
             fullWidth={false}
-            sx={{ px: 2.5 }}
+            sx={{ px: 3 }}
           >
             Send Invitation
           </AuthButton>

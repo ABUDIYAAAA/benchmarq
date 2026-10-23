@@ -17,6 +17,7 @@ var (
 	ErrUserNotFound          = errors.New("user not found")
 	ErrUserAlreadyExists     = errors.New("a user with this email already exists")
 	ErrSessionNotFound       = errors.New("session not found")
+	ErrSessionRotated        = errors.New("session refresh token was already rotated")
 	ErrResetTokenNotFound    = errors.New("password reset token not found or invalid")
 	ErrResetTokenExpired     = errors.New("password reset token has expired")
 	ErrResetTokenAlreadyUsed = errors.New("password reset token has already been used")
@@ -29,8 +30,13 @@ type Repository interface {
 	GetUserByID(ctx context.Context, id uuid.UUID) (*User, error)
 	UpdateUserPassword(ctx context.Context, userID uuid.UUID, passwordHash string) error
 	CreateSession(ctx context.Context, session *UserSession) error
+	// GetSessionByRefreshTokenHash finds the session whose current or
+	// previous refresh token has this hash.
 	GetSessionByRefreshTokenHash(ctx context.Context, tokenHash string) (*UserSession, error)
-	UpdateSessionRefreshToken(ctx context.Context, sessionID uuid.UUID, newRefreshTokenHash string, newExpiresAt time.Time) error
+	// RotateSessionRefreshToken replaces the session's refresh token only if
+	// it is still currentHash, keeping currentHash as the previous token. It
+	// returns ErrSessionRotated if another request rotated it first.
+	RotateSessionRefreshToken(ctx context.Context, sessionID uuid.UUID, currentHash, newHash string, newExpiresAt time.Time) error
 	RevokeSession(ctx context.Context, sessionID uuid.UUID) error
 	RevokeUserSessions(ctx context.Context, userID uuid.UUID) error
 	RevokeDeviceSessions(ctx context.Context, userID uuid.UUID, deviceID string) error
@@ -206,9 +212,10 @@ func (r *postgresRepository) CreateSession(ctx context.Context, session *UserSes
 
 func (r *postgresRepository) GetSessionByRefreshTokenHash(ctx context.Context, tokenHash string) (*UserSession, error) {
 	query := `
-		SELECT id, user_id, device_id, refresh_token_hash, user_agent, ip_address, is_revoked, expires_at, created_at, updated_at
+		SELECT id, user_id, device_id, refresh_token_hash, user_agent, ip_address, is_revoked, expires_at, created_at, updated_at,
+		       previous_refresh_token_hash, rotated_at
 		FROM user_sessions
-		WHERE refresh_token_hash = $1
+		WHERE refresh_token_hash = $1 OR previous_refresh_token_hash = $1
 	`
 	var session UserSession
 	err := r.db.QueryRow(ctx, query, tokenHash).Scan(
@@ -222,6 +229,8 @@ func (r *postgresRepository) GetSessionByRefreshTokenHash(ctx context.Context, t
 		&session.ExpiresAt,
 		&session.CreatedAt,
 		&session.UpdatedAt,
+		&session.PreviousRefreshTokenHash,
+		&session.RotatedAt,
 	)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -233,18 +242,19 @@ func (r *postgresRepository) GetSessionByRefreshTokenHash(ctx context.Context, t
 	return &session, nil
 }
 
-func (r *postgresRepository) UpdateSessionRefreshToken(ctx context.Context, sessionID uuid.UUID, newRefreshTokenHash string, newExpiresAt time.Time) error {
+func (r *postgresRepository) RotateSessionRefreshToken(ctx context.Context, sessionID uuid.UUID, currentHash, newHash string, newExpiresAt time.Time) error {
 	query := `
 		UPDATE user_sessions
-		SET refresh_token_hash = $1, expires_at = $2, updated_at = now()
-		WHERE id = $3 AND is_revoked = FALSE
+		SET previous_refresh_token_hash = refresh_token_hash, refresh_token_hash = $3,
+		    rotated_at = now(), expires_at = $4, updated_at = now()
+		WHERE id = $1 AND refresh_token_hash = $2 AND is_revoked = FALSE
 	`
-	tag, err := r.db.Exec(ctx, query, newRefreshTokenHash, newExpiresAt, sessionID)
+	tag, err := r.db.Exec(ctx, query, sessionID, currentHash, newHash, newExpiresAt)
 	if err != nil {
-		return fmt.Errorf("failed updating session refresh token: %w", err)
+		return fmt.Errorf("failed rotating session refresh token: %w", err)
 	}
 	if tag.RowsAffected() == 0 {
-		return ErrSessionNotFound
+		return ErrSessionRotated
 	}
 	return nil
 }

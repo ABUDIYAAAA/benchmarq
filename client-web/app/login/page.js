@@ -18,6 +18,7 @@ function LoginForm() {
   const searchParams = useSearchParams();
   const isRegisteredParam = searchParams.get("registered") === "true";
   const emailParam = searchParams.get("email") || "";
+  const redirectParam = searchParams.get("redirect") || "";
 
   const [formData, setFormData] = useState({
     email: emailParam,
@@ -36,7 +37,7 @@ function LoginForm() {
 
   const loginMutation = useLoginMutation({
     onSuccess: () => {
-      router.push("/dashboard");
+      router.push(redirectParam || "/dashboard");
     },
     onError: (error) => {
       setFeedback({
@@ -76,7 +77,7 @@ function LoginForm() {
         <Typography sx={{ fontSize: "0.8125rem", color: "#71717a" }}>
           Need an administrator account?{" "}
           <Link
-            href="/signup"
+            href={redirectParam ? `/signup?redirect=${encodeURIComponent(redirectParam)}` : "/signup"}
             style={{
               color: "#09090b",
               fontWeight: 600,

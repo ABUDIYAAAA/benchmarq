@@ -3,6 +3,7 @@ package mailer
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"fmt"
 	netmail "net/mail"
 	"strings"
@@ -50,14 +51,21 @@ func NewSMTPSender(cfg SMTPConfig) (*SMTPSender, error) {
 		mail.WithTimeout(time.Duration(cfg.TimeoutSecs) * time.Second),
 	}
 
-	// Configure Encryption / TLS
+	// Configure TLS config (InsecureSkipVerify: true allows disabling strict certificate checking)
+	tlsCfg := &tls.Config{
+		ServerName:         cfg.Host,
+		InsecureSkipVerify: true,
+	}
+	opts = append(opts, mail.WithTLSConfig(tlsCfg))
+
+	// Configure Encryption / TLS Policy
 	switch strings.ToLower(cfg.Encryption) {
 	case "ssl", "tls":
 		opts = append(opts, mail.WithSSL())
 	case "starttls":
 		opts = append(opts, mail.WithTLSPolicy(mail.TLSMandatory))
 	case "none":
-		opts = append(opts, mail.WithTLSPolicy(mail.NoTLS))
+		opts = append(opts, mail.WithTLSPolicy(mail.TLSOpportunistic))
 	default:
 		opts = append(opts, mail.WithTLSPolicy(mail.TLSOpportunistic))
 	}
@@ -68,7 +76,7 @@ func NewSMTPSender(cfg SMTPConfig) (*SMTPSender, error) {
 	}
 	if cfg.Password != "" {
 		opts = append(opts, mail.WithPassword(cfg.Password))
-		opts = append(opts, mail.WithSMTPAuth(mail.SMTPAuthPlain))
+		opts = append(opts, mail.WithSMTPAuth(mail.SMTPAuthAutoDiscover))
 	}
 
 	sender.clientOpt = opts

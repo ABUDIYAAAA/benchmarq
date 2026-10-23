@@ -85,26 +85,29 @@ export default function SignUpPage() {
   return (
     <AuthLayout>
       <AuthCard
-        title={createdUser ? "Account Created" : "Create Admin Account"}
+        title={createdUser ? "Check Your Email" : "Create Admin Account"}
         subtitle={
           createdUser
-            ? "Your administrator account has been provisioned successfully."
+            ? "We've sent a verification link to activate your account."
             : "Set up your primary administrator credentials to manage the platform."
         }
         footer={
           <Typography sx={{ fontSize: "0.8125rem", color: "#71717a" }}>
             {createdUser ? (
-              <Link
-                href={`/login?registered=true&email=${encodeURIComponent(createdUser.email)}`}
-                style={{
-                  color: "#09090b",
-                  fontWeight: 600,
-                  textDecoration: "underline",
-                  textUnderlineOffset: 3,
-                }}
-              >
-                Proceed to sign in
-              </Link>
+              <>
+                Need to sign in?{" "}
+                <Link
+                  href={`/login?registered=true&email=${encodeURIComponent(createdUser.email)}`}
+                  style={{
+                    color: "#09090b",
+                    fontWeight: 600,
+                    textDecoration: "underline",
+                    textUnderlineOffset: 3,
+                  }}
+                >
+                  Proceed to sign in
+                </Link>
+              </>
             ) : (
               <>
                 Already registered?{" "}
@@ -131,60 +134,52 @@ export default function SignUpPage() {
         />
 
         {createdUser ? (
-          <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
+          <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
             <Box
               sx={{
-                p: 2,
-                borderRadius: "6px",
+                p: 2.5,
+                borderRadius: "8px",
                 backgroundColor: "#fafafa",
                 border: "1px solid #e4e4e7",
+                textAlign: "center",
               }}
             >
-              <Typography sx={{ fontSize: "0.75rem", color: "#71717a", textTransform: "uppercase", letterSpacing: "0.06em", mb: 0.5 }}>
-                Registered Account
-              </Typography>
+              <Box
+                sx={{
+                  width: 44,
+                  height: 44,
+                  borderRadius: "50%",
+                  backgroundColor: "#f4f4f5",
+                  border: "1px solid #e4e4e7",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  margin: "0 auto 12px",
+                  color: "#09090b",
+                }}
+              >
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                  <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                  <polyline points="22,6 12,13 2,6" />
+                </svg>
+              </Box>
               <Typography sx={{ fontSize: "0.875rem", fontWeight: 600, color: "#09090b" }}>
-                {createdUser.first_name} {createdUser.last_name || ""}
+                Verification Link Dispatched
               </Typography>
-              <Typography sx={{ fontSize: "0.8125rem", color: "#71717a" }}>
-                {createdUser.email}
+              <Typography sx={{ fontSize: "0.8125rem", color: "#71717a", mt: 0.5, lineHeight: 1.5 }}>
+                We sent a confirmation link to <strong>{createdUser.email}</strong>. Please click the link in your email to verify your address.
               </Typography>
             </Box>
 
-            <Typography sx={{ fontSize: "0.8125rem", color: "#71717a", lineHeight: 1.45 }}>
-              A confirmation email has been dispatched. You may verify your email token now, continue directly into the admin console, or sign in.
-            </Typography>
-
-            <Divider sx={{ my: 1, borderColor: "#f4f4f5" }} />
-
-            <Box sx={{ display: "flex", flexDirection: "column", gap: 1.5 }}>
-              <AuthButton
-                type="button"
-                onClick={() => router.push("/dashboard")}
-              >
-                Continue to Admin Console
-              </AuthButton>
-
-              <AuthButton
-                type="button"
-                variant="outlined"
-                onClick={() =>
-                  router.push(`/login?registered=true&email=${encodeURIComponent(createdUser.email)}`)
-                }
-              >
-                Sign In With Password
-              </AuthButton>
-
-              <AuthButton
-                type="button"
-                variant="outlined"
-                onClick={() =>
-                  router.push(`/verify-email?email=${encodeURIComponent(createdUser.email)}`)
-                }
-              >
-                Verify Email Token
-              </AuthButton>
-            </Box>
+            <AuthButton
+              type="button"
+              variant="contained"
+              onClick={() =>
+                router.push(`/login?registered=true&email=${encodeURIComponent(createdUser.email)}`)
+              }
+            >
+              Proceed to Sign In
+            </AuthButton>
           </Box>
         ) : (
           <Box component="form" onSubmit={handleSubmit} noValidate>

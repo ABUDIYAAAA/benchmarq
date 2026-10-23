@@ -78,6 +78,27 @@ export const orgsApi = {
   },
 
   /**
+   * Update member role in organization
+   * @param {string} orgId
+   * @param {string} userId
+   * @param {string} role
+   */
+  async updateMemberRole(orgId, userId, role) {
+    const res = await apiClient.patch(`/orgs/${orgId}/members/${userId}`, { role });
+    return res.data;
+  },
+
+  /**
+   * Remove member from organization
+   * @param {string} orgId
+   * @param {string} userId
+   */
+  async removeMember(orgId, userId) {
+    const res = await apiClient.delete(`/orgs/${orgId}/members/${userId}`);
+    return res.data;
+  },
+
+  /**
    * Accept invitation (used by invitee)
    * @param {string} token
    */

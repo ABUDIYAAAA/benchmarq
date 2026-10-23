@@ -25,8 +25,10 @@ export default function OrgDashboardView({ org }) {
   const [inviteDialogOpen, setInviteDialogOpen] = useState(false);
   const [actionFeedback, setActionFeedback] = useState(null);
 
-  const { data: members = [], isLoading: isLoadingMembers } = useOrganizationMembers(org?.id);
-  const { data: invitations = [], isLoading: isLoadingInvites } = useOrganizationInvitations(org?.id);
+  const { data: members = [], isLoading: isLoadingMembers } =
+    useOrganizationMembers(org?.id);
+  const { data: invitations = [], isLoading: isLoadingInvites } =
+    useOrganizationInvitations(org?.id);
 
   const resendMutation = useResendInvitationMutation(org?.id, {
     onSuccess: () => {
@@ -89,7 +91,14 @@ export default function OrgDashboardView({ org }) {
           }}
         >
           <Box>
-            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5, flexWrap: "wrap" }}>
+            <Box
+              sx={{
+                display: "flex",
+                alignItems: "center",
+                gap: 1.5,
+                flexWrap: "wrap",
+              }}
+            >
               <Typography
                 component="h1"
                 sx={{
@@ -117,12 +126,6 @@ export default function OrgDashboardView({ org }) {
                 {org.my_role}
               </Box>
             </Box>
-            <Typography sx={{ fontSize: "0.8125rem", color: "#71717a", mt: 0.5 }}>
-              Workspace slug: <code style={{ fontFamily: "monospace" }}>{org.slug}</code>
-              {org.website && (
-                <> • <a href={org.website} target="_blank" rel="noreferrer" style={{ textDecoration: "underline" }}>{org.website}</a></>
-              )}
-            </Typography>
           </Box>
 
           {canManage && (
@@ -210,13 +213,25 @@ export default function OrgDashboardView({ org }) {
                 borderRadius: 2,
               }}
             >
-              <Typography sx={{ fontSize: "0.75rem", color: "#71717a", textTransform: "uppercase", letterSpacing: "0.06em", mb: 0.5 }}>
+              <Typography
+                sx={{
+                  fontSize: "0.75rem",
+                  color: "#71717a",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  mb: 0.5,
+                }}
+              >
                 Active Members
               </Typography>
-              <Typography sx={{ fontSize: "1.75rem", fontWeight: 700, color: "#09090b" }}>
+              <Typography
+                sx={{ fontSize: "1.75rem", fontWeight: 700, color: "#09090b" }}
+              >
                 {isLoadingMembers ? "..." : members.length}
               </Typography>
-              <Typography sx={{ fontSize: "0.75rem", color: "#71717a", mt: 0.5 }}>
+              <Typography
+                sx={{ fontSize: "0.75rem", color: "#71717a", mt: 0.5 }}
+              >
                 Owners, instructors, & proctors
               </Typography>
             </Paper>
@@ -230,13 +245,25 @@ export default function OrgDashboardView({ org }) {
                 borderRadius: 2,
               }}
             >
-              <Typography sx={{ fontSize: "0.75rem", color: "#71717a", textTransform: "uppercase", letterSpacing: "0.06em", mb: 0.5 }}>
+              <Typography
+                sx={{
+                  fontSize: "0.75rem",
+                  color: "#71717a",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  mb: 0.5,
+                }}
+              >
                 Pending Invitations
               </Typography>
-              <Typography sx={{ fontSize: "1.75rem", fontWeight: 700, color: "#09090b" }}>
+              <Typography
+                sx={{ fontSize: "1.75rem", fontWeight: 700, color: "#09090b" }}
+              >
                 {isLoadingInvites ? "..." : invitations.length}
               </Typography>
-              <Typography sx={{ fontSize: "0.75rem", color: "#71717a", mt: 0.5 }}>
+              <Typography
+                sx={{ fontSize: "0.75rem", color: "#71717a", mt: 0.5 }}
+              >
                 Awaiting registration or acceptance
               </Typography>
             </Paper>
@@ -250,13 +277,25 @@ export default function OrgDashboardView({ org }) {
                 borderRadius: 2,
               }}
             >
-              <Typography sx={{ fontSize: "0.75rem", color: "#71717a", textTransform: "uppercase", letterSpacing: "0.06em", mb: 0.5 }}>
+              <Typography
+                sx={{
+                  fontSize: "0.75rem",
+                  color: "#71717a",
+                  textTransform: "uppercase",
+                  letterSpacing: "0.06em",
+                  mb: 0.5,
+                }}
+              >
                 Workspace Status
               </Typography>
-              <Typography sx={{ fontSize: "1.75rem", fontWeight: 700, color: "#09090b" }}>
+              <Typography
+                sx={{ fontSize: "1.75rem", fontWeight: 700, color: "#09090b" }}
+              >
                 Active
               </Typography>
-              <Typography sx={{ fontSize: "0.75rem", color: "#71717a", mt: 0.5 }}>
+              <Typography
+                sx={{ fontSize: "0.75rem", color: "#71717a", mt: 0.5 }}
+              >
                 Exam authoring enabled
               </Typography>
             </Paper>
@@ -279,11 +318,26 @@ export default function OrgDashboardView({ org }) {
                 borderRadius: 2,
               }}
             >
-              <Typography sx={{ fontSize: "1rem", fontWeight: 600, color: "#09090b", mb: 1 }}>
+              <Typography
+                sx={{
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                  color: "#09090b",
+                  mb: 1,
+                }}
+              >
                 Author Assessments
               </Typography>
-              <Typography sx={{ fontSize: "0.8125rem", color: "#71717a", mb: 2.5, lineHeight: 1.5 }}>
-                Create structured multi-section exams, multiple choice question banks, and custom grading standards for {org.name}.
+              <Typography
+                sx={{
+                  fontSize: "0.8125rem",
+                  color: "#71717a",
+                  mb: 2.5,
+                  lineHeight: 1.5,
+                }}
+              >
+                Create structured multi-section exams, multiple choice question
+                banks, and custom grading standards for {org.name}.
               </Typography>
               <AuthButton
                 variant="outlined"
@@ -303,11 +357,26 @@ export default function OrgDashboardView({ org }) {
                 borderRadius: 2,
               }}
             >
-              <Typography sx={{ fontSize: "1rem", fontWeight: 600, color: "#09090b", mb: 1 }}>
+              <Typography
+                sx={{
+                  fontSize: "1rem",
+                  fontWeight: 600,
+                  color: "#09090b",
+                  mb: 1,
+                }}
+              >
                 Team Collaboration
               </Typography>
-              <Typography sx={{ fontSize: "0.8125rem", color: "#71717a", mb: 2.5, lineHeight: 1.5 }}>
-                Invite co-instructors to write questions or proctors to oversee live candidate sessions.
+              <Typography
+                sx={{
+                  fontSize: "0.8125rem",
+                  color: "#71717a",
+                  mb: 2.5,
+                  lineHeight: 1.5,
+                }}
+              >
+                Invite co-instructors to write questions or proctors to oversee
+                live candidate sessions.
               </Typography>
               <AuthButton
                 variant="outlined"
@@ -334,9 +403,18 @@ export default function OrgDashboardView({ org }) {
             overflow: "hidden",
           }}
         >
-          <Box sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Box
+            sx={{
+              p: 3,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <Box>
-              <Typography sx={{ fontSize: "1rem", fontWeight: 600, color: "#09090b" }}>
+              <Typography
+                sx={{ fontSize: "1rem", fontWeight: 600, color: "#09090b" }}
+              >
                 Active Members
               </Typography>
               <Typography sx={{ fontSize: "0.8125rem", color: "#71717a" }}>
@@ -407,12 +485,20 @@ export default function OrgDashboardView({ org }) {
                   {members.map((m) => (
                     <tr key={m.user_id}>
                       <td>
-                        <Typography sx={{ fontSize: "0.875rem", fontWeight: 500, color: "#09090b" }}>
+                        <Typography
+                          sx={{
+                            fontSize: "0.875rem",
+                            fontWeight: 500,
+                            color: "#09090b",
+                          }}
+                        >
                           {m.first_name} {m.last_name || ""}
                         </Typography>
                       </td>
                       <td>
-                        <Typography sx={{ fontSize: "0.8125rem", color: "#71717a" }}>
+                        <Typography
+                          sx={{ fontSize: "0.8125rem", color: "#71717a" }}
+                        >
                           {m.email}
                         </Typography>
                       </td>
@@ -435,8 +521,12 @@ export default function OrgDashboardView({ org }) {
                         </Box>
                       </td>
                       <td>
-                        <Typography sx={{ fontSize: "0.75rem", color: "#71717a" }}>
-                          {m.joined_at ? new Date(m.joined_at).toLocaleDateString() : "—"}
+                        <Typography
+                          sx={{ fontSize: "0.75rem", color: "#71717a" }}
+                        >
+                          {m.joined_at
+                            ? new Date(m.joined_at).toLocaleDateString()
+                            : "—"}
                         </Typography>
                       </td>
                     </tr>
@@ -459,9 +549,18 @@ export default function OrgDashboardView({ org }) {
             overflow: "hidden",
           }}
         >
-          <Box sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <Box
+            sx={{
+              p: 3,
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+            }}
+          >
             <Box>
-              <Typography sx={{ fontSize: "1rem", fontWeight: 600, color: "#09090b" }}>
+              <Typography
+                sx={{ fontSize: "1rem", fontWeight: 600, color: "#09090b" }}
+              >
                 Invitations
               </Typography>
               <Typography sx={{ fontSize: "0.8125rem", color: "#71717a" }}>
@@ -488,7 +587,9 @@ export default function OrgDashboardView({ org }) {
             </Box>
           ) : invitations.length === 0 ? (
             <Box sx={{ p: 4, textAlign: "center" }}>
-              <Typography sx={{ fontSize: "0.875rem", color: "#71717a", mb: 1 }}>
+              <Typography
+                sx={{ fontSize: "0.875rem", color: "#71717a", mb: 1 }}
+              >
                 No invitations currently pending.
               </Typography>
               {canManage && (
@@ -536,14 +637,22 @@ export default function OrgDashboardView({ org }) {
                     <th>Role</th>
                     <th>Status</th>
                     <th>Sent At</th>
-                    {canManage && <th style={{ textAlign: "right" }}>Actions</th>}
+                    {canManage && (
+                      <th style={{ textAlign: "right" }}>Actions</th>
+                    )}
                   </tr>
                 </thead>
                 <tbody>
                   {invitations.map((inv) => (
                     <tr key={inv.id}>
                       <td>
-                        <Typography sx={{ fontSize: "0.875rem", fontWeight: 500, color: "#09090b" }}>
+                        <Typography
+                          sx={{
+                            fontSize: "0.875rem",
+                            fontWeight: 500,
+                            color: "#09090b",
+                          }}
+                        >
                           {inv.email}
                         </Typography>
                       </td>
@@ -566,18 +675,34 @@ export default function OrgDashboardView({ org }) {
                         </Box>
                       </td>
                       <td>
-                        <Typography sx={{ fontSize: "0.8125rem", color: "#71717a", textTransform: "capitalize" }}>
+                        <Typography
+                          sx={{
+                            fontSize: "0.8125rem",
+                            color: "#71717a",
+                            textTransform: "capitalize",
+                          }}
+                        >
                           {inv.status || "pending"}
                         </Typography>
                       </td>
                       <td>
-                        <Typography sx={{ fontSize: "0.75rem", color: "#71717a" }}>
-                          {inv.created_at ? new Date(inv.created_at).toLocaleDateString() : "—"}
+                        <Typography
+                          sx={{ fontSize: "0.75rem", color: "#71717a" }}
+                        >
+                          {inv.created_at
+                            ? new Date(inv.created_at).toLocaleDateString()
+                            : "—"}
                         </Typography>
                       </td>
                       {canManage && (
                         <td style={{ textAlign: "right" }}>
-                          <Box sx={{ display: "flex", justifyContent: "flex-end", gap: 1 }}>
+                          <Box
+                            sx={{
+                              display: "flex",
+                              justifyContent: "flex-end",
+                              gap: 1,
+                            }}
+                          >
                             <ButtonBase
                               disabled={resendMutation.isPending}
                               onClick={() => resendMutation.mutate(inv.id)}
@@ -605,7 +730,10 @@ export default function OrgDashboardView({ org }) {
                                 py: 0.5,
                                 borderRadius: "4px",
                                 border: "1px solid #e4e4e7",
-                                "&:hover": { backgroundColor: "#f4f4f5", color: "#09090b" },
+                                "&:hover": {
+                                  backgroundColor: "#f4f4f5",
+                                  color: "#09090b",
+                                },
                               }}
                             >
                               Revoke
@@ -627,6 +755,7 @@ export default function OrgDashboardView({ org }) {
         open={inviteDialogOpen}
         onClose={() => setInviteDialogOpen(false)}
         org={org}
+        onSuccess={() => setActiveTab(2)}
       />
     </Box>
   );

@@ -8,7 +8,6 @@ import Typography from "@mui/material/Typography";
 import CircularProgress from "@mui/material/CircularProgress";
 import AuthLayout from "@/components/auth/AuthLayout";
 import AuthCard from "@/components/auth/AuthCard";
-import AuthField from "@/components/auth/AuthField";
 import AuthButton from "@/components/auth/AuthButton";
 import AuthFeedback from "@/components/auth/AuthFeedback";
 import {
@@ -22,7 +21,6 @@ function VerifyEmailContent() {
   const searchParams = useSearchParams();
   const tokenFromUrl = searchParams.get("token") || "";
 
-  const [tokenInput, setTokenInput] = useState(tokenFromUrl);
   const [feedback, setFeedback] = useState(null);
   const [isVerified, setIsVerified] = useState(false);
   const hasAutoSubmitted = useRef(false);
@@ -40,7 +38,7 @@ function VerifyEmailContent() {
         type: "error",
         message: getApiErrorMessage(
           error,
-          "Invalid or expired verification link. Please request a new one."
+          "This verification link is invalid or has expired. Please request a new link."
         ),
       });
     },
@@ -58,7 +56,7 @@ function VerifyEmailContent() {
         type: "error",
         message: getApiErrorMessage(
           error,
-          "Unable to send verification email. Ensure you are signed in or try again shortly."
+          "Unable to send verification email. Please ensure you are logged in or try again shortly."
         ),
       });
     },
@@ -72,20 +70,6 @@ function VerifyEmailContent() {
     }
   }, [tokenFromUrl, verifyMutation]);
 
-  const handleSubmit = (e) => {
-    e.preventDefault();
-    const effectiveToken = tokenInput.trim();
-    if (!effectiveToken) {
-      setFeedback({
-        type: "error",
-        message: "Please enter the verification token.",
-      });
-      return;
-    }
-
-    verifyMutation.mutate({ token: effectiveToken });
-  };
-
   const handleResend = () => {
     setFeedback(null);
     resendMutation.mutate();
@@ -93,23 +77,15 @@ function VerifyEmailContent() {
 
   return (
     <AuthCard
-      title="Verify Email Address"
-      subtitle="Confirm your administrator email address to maintain security compliance."
+      title={isVerified ? "Email Verified" : "Verify Email Address"}
+      subtitle={
+        isVerified
+          ? "Your administrator account has been successfully verified."
+          : "Confirm your email address to access all features."
+      }
       footer={
         <Typography sx={{ fontSize: "0.8125rem", color: "#71717a" }}>
           Proceed to{" "}
-          <Link
-            href="/login"
-            style={{
-              color: "#09090b",
-              fontWeight: 600,
-              textDecoration: "underline",
-              textUnderlineOffset: 3,
-            }}
-          >
-            Sign in
-          </Link>
-          {" • "}
           <Link
             href="/dashboard"
             style={{
@@ -119,7 +95,19 @@ function VerifyEmailContent() {
               textUnderlineOffset: 3,
             }}
           >
-            Console
+            Admin Dashboard
+          </Link>
+          {" • "}
+          <Link
+            href="/login"
+            style={{
+              color: "#09090b",
+              fontWeight: 600,
+              textDecoration: "underline",
+              textUnderlineOffset: 3,
+            }}
+          >
+            Sign In
           </Link>
         </Typography>
       }
@@ -132,69 +120,116 @@ function VerifyEmailContent() {
 
       {isVerified ? (
         <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
-          <Typography sx={{ fontSize: "0.875rem", color: "#09090b" }}>
-            Your email has been confirmed. You now have unhindered administrator privileges.
-          </Typography>
+          <Box
+            sx={{
+              py: 2.5,
+              px: 2,
+              backgroundColor: "#fafafa",
+              borderRadius: "8px",
+              border: "1px solid #e4e4e7",
+              textAlign: "center",
+            }}
+          >
+            <Box
+              sx={{
+                width: 40,
+                height: 40,
+                borderRadius: "50%",
+                backgroundColor: "#09090b",
+                color: "#ffffff",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 10px",
+              }}
+            >
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+            </Box>
+            <Typography sx={{ fontSize: "0.875rem", fontWeight: 600, color: "#09090b" }}>
+              Account Activated
+            </Typography>
+            <Typography sx={{ fontSize: "0.8125rem", color: "#71717a", mt: 0.25 }}>
+              Your credentials and administrator permissions are now active.
+            </Typography>
+          </Box>
+
           <AuthButton
             type="button"
             onClick={() => router.push("/dashboard")}
           >
-            Go to Admin Dashboard
+            Continue to Admin Dashboard
           </AuthButton>
         </Box>
       ) : verifyMutation.isPending ? (
         <Box
           sx={{
-            py: 4,
+            py: 5,
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             gap: 2,
           }}
         >
-          <CircularProgress size={24} sx={{ color: "#09090b" }} />
+          <CircularProgress size={26} sx={{ color: "#09090b" }} />
           <Typography sx={{ fontSize: "0.875rem", color: "#71717a" }}>
-            Verifying security token...
+            Verifying your email link...
           </Typography>
         </Box>
       ) : (
-        <Box component="form" onSubmit={handleSubmit} noValidate>
-          <AuthField
-            id="verify-token"
-            name="token"
-            label="Verification Token"
-            placeholder="Paste verification token"
-            value={tokenInput}
-            onChange={(e) => {
-              setTokenInput(e.target.value);
-              if (feedback) setFeedback(null);
+        <Box sx={{ display: "flex", flexDirection: "column", gap: 2.5 }}>
+          <Box
+            sx={{
+              p: 2.5,
+              backgroundColor: "#fafafa",
+              borderRadius: "8px",
+              border: "1px solid #e4e4e7",
+              textAlign: "center",
             }}
-            required
-            autoComplete="off"
-            helperText="Check your registered inbox for the verification token."
-          />
+          >
+            <Box
+              sx={{
+                width: 44,
+                height: 44,
+                borderRadius: "50%",
+                backgroundColor: "#f4f4f5",
+                color: "#71717a",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                margin: "0 auto 12px",
+              }}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75">
+                <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z" />
+                <polyline points="22,6 12,13 2,6" />
+              </svg>
+            </Box>
+            <Typography sx={{ fontSize: "0.9375rem", fontWeight: 600, color: "#09090b" }}>
+              Check Your Inbox
+            </Typography>
+            <Typography sx={{ fontSize: "0.8125rem", color: "#71717a", mt: 0.75, lineHeight: 1.5 }}>
+              Click the link inside the verification email sent to your address to activate your account.
+            </Typography>
+          </Box>
 
           <AuthButton
-            type="submit"
-            loading={verifyMutation.isPending}
-            sx={{ mt: 1 }}
+            type="button"
+            variant="contained"
+            loading={resendMutation.isPending}
+            onClick={handleResend}
           >
-            Verify Email
+            Resend Verification Link
           </AuthButton>
 
-          <Box sx={{ mt: 2.5, textAlign: "center" }}>
-            <Typography sx={{ fontSize: "0.8125rem", color: "#71717a", mb: 1 }}>
-              Didn&apos;t receive the email?
-            </Typography>
-            <AuthButton
-              type="button"
-              variant="outlined"
-              loading={resendMutation.isPending}
-              onClick={handleResend}
-            >
-              Resend Verification Link
-            </AuthButton>
-          </Box>
+          <AuthButton
+            type="button"
+            variant="outlined"
+            onClick={() => router.push("/dashboard")}
+          >
+            Go to Admin Dashboard
+          </AuthButton>
         </Box>
       )}
     </AuthCard>

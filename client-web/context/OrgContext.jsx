@@ -1,12 +1,14 @@
 "use client";
 
 import { createContext, useContext, useState, useMemo, useCallback } from "react";
-import { useMyOrganizations, useCreateOrganizationMutation } from "@/hooks/api/useOrgs";
+import { useQueryClient } from "@tanstack/react-query";
+import { useMyOrganizations, useCreateOrganizationMutation, orgKeys } from "@/hooks/api/useOrgs";
 
 const OrgContext = createContext(null);
 const STORAGE_KEY = "benchmarq_active_org_id";
 
 export function OrgProvider({ children }) {
+  const queryClient = useQueryClient();
   const { data: organizations = [], isLoading: isLoadingOrgs, refetch: refetchOrgs } = useMyOrganizations();
 
   const [selectedOrgId, setSelectedOrgId] = useState(() => {
@@ -33,20 +35,32 @@ export function OrgProvider({ children }) {
     }
   }, []);
 
-  const createMutation = useCreateOrganizationMutation({
-    onSuccess: (res) => {
-      const newOrg = res.data;
-      if (newOrg?.id) {
-        selectOrg(newOrg.id);
-      }
-    },
-  });
+  const createMutation = useCreateOrganizationMutation();
 
   const createOrg = useCallback(
     async (payload) => {
-      return await createMutation.mutateAsync(payload);
+      const res = await createMutation.mutateAsync(payload);
+      const newOrg = res?.data?.id ? res.data : (res?.id ? res : null);
+
+      if (newOrg?.id) {
+        // 1. Synchronously inject new organization into TanStack cache
+        queryClient.setQueryData(orgKeys.mine(), (old) => {
+          const list = Array.isArray(old) ? old : [];
+          if (!list.some((o) => o.id === newOrg.id)) {
+            return [newOrg, ...list];
+          }
+          return list;
+        });
+
+        // 2. Select newly created organization
+        selectOrg(newOrg.id);
+      }
+
+      // 3. Guarantee fresh server sync
+      await refetchOrgs();
+      return res;
     },
-    [createMutation]
+    [createMutation, queryClient, selectOrg, refetchOrgs]
   );
 
   const value = useMemo(

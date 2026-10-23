@@ -4,6 +4,7 @@ import ThemeRegistry from "@/lib/theme/ThemeRegistry";
 import QueryProvider from "@/lib/query/QueryProvider";
 import { AuthProvider } from "@/context/AuthContext";
 import { OrgProvider } from "@/context/OrgContext";
+import { ToastProvider } from "@/context/ToastContext";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -30,7 +31,9 @@ export default function RootLayout({ children }) {
         <ThemeRegistry>
           <QueryProvider>
             <AuthProvider>
-              <OrgProvider>{children}</OrgProvider>
+              <ToastProvider>
+                <OrgProvider>{children}</OrgProvider>
+              </ToastProvider>
             </AuthProvider>
           </QueryProvider>
         </ThemeRegistry>

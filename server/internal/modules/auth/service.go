@@ -157,6 +157,23 @@ func (s *authService) RefreshToken(ctx context.Context, rawRefreshToken string, 
 		return nil, "", err
 	}
 
+	// 1. Replay attack check: if the presented token matches previous_refresh_token_hash,
+	// this is an already-rotated token being replayed. Revoke session immediately.
+	if session.PreviousRefreshTokenHash != nil && *session.PreviousRefreshTokenHash == tokenHash {
+		s.logger.Warn("Replay attack detected: refresh token was already rotated",
+			"session_id", session.ID,
+			"user_id", session.UserID,
+			"device_id", session.DeviceID,
+		)
+		if session.DeviceID != "" {
+			_ = s.repo.RevokeDeviceSessions(ctx, session.UserID, session.DeviceID)
+		} else {
+			_ = s.repo.RevokeSession(ctx, session.ID)
+		}
+		return nil, "", token.ErrInvalidToken
+	}
+
+	// 2. Revoked or expired check
 	if session.IsRevoked || time.Now().UTC().After(session.ExpiresAt) {
 		// Possible token reuse attack; revoke all sessions for this device
 		if session.DeviceID != "" {
@@ -165,7 +182,7 @@ func (s *authService) RefreshToken(ctx context.Context, rawRefreshToken string, 
 		return nil, "", token.ErrTokenExpired
 	}
 
-	// Check device consistency if device ID provided
+	// 3. Check device consistency if device ID provided
 	if clientDeviceID != "" && session.DeviceID != clientDeviceID {
 		_ = s.repo.RevokeSession(ctx, session.ID)
 		return nil, "", ErrInvalidDevice
@@ -177,18 +194,27 @@ func (s *authService) RefreshToken(ctx context.Context, rawRefreshToken string, 
 		return nil, "", ErrAccountInactive
 	}
 
-	// Rotate refresh token
+	// 4. Rotate refresh token atomically using previous hash preservation
 	newRawRefresh, newHashedRefresh, err := token.GenerateRefreshToken()
 	if err != nil {
 		return nil, "", fmt.Errorf("failed generating rotated refresh token: %w", err)
 	}
 
 	newExpiresAt := time.Now().UTC().Add(time.Duration(s.cfg.JWTRefreshExpiryDays) * 24 * time.Hour)
-	if err := s.repo.UpdateSessionRefreshToken(ctx, session.ID, newHashedRefresh, newExpiresAt); err != nil {
+	if err := s.repo.RotateSessionRefreshToken(ctx, session.ID, tokenHash, newHashedRefresh, newExpiresAt); err != nil {
+		if errors.Is(err, ErrSessionRotated) {
+			s.logger.Warn("Concurrent session rotation conflict; revoking session", "session_id", session.ID)
+			if session.DeviceID != "" {
+				_ = s.repo.RevokeDeviceSessions(ctx, session.UserID, session.DeviceID)
+			} else {
+				_ = s.repo.RevokeSession(ctx, session.ID)
+			}
+			return nil, "", token.ErrInvalidToken
+		}
 		return nil, "", fmt.Errorf("failed updating rotated session: %w", err)
 	}
 
-	// Issue new Access Token
+	// 5. Issue new Access Token
 	newAccess, err := token.GenerateAccessToken(
 		user.ID,
 		user.Email,
