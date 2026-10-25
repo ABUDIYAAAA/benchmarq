@@ -130,7 +130,8 @@ class Runtime extends EventEmitter {
     if (screen) form.append('screen', new Blob([screen], { type: 'image/jpeg' }), 'screen.jpg');
     try {
       return await this.#request('POST', '/runtime/snapshots', form);
-    } catch {
+    } catch (err) {
+      console.warn('snapshots: upload failed', err?.status, err?.message);
       return null;
     }
   }

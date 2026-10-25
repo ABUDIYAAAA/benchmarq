@@ -7,6 +7,12 @@ const { SNAPSHOT_INTERVAL_MS, SNAPSHOT_JPEG_QUALITY } = require('./config');
 
 const FRAME_TIMEOUT_MS = 8000;
 
+/** Resolves null if promise has not settled within ms. */
+function withTimeout(promise, ms) {
+  let timer;
+  return Promise.race([promise, new Promise((resolve) => (timer = setTimeout(resolve, ms, null)))]).finally(() => clearTimeout(timer));
+}
+
 /**
  * Captures a webcam frame and the screen every 30 seconds while an attempt
  * runs and uploads both to the server.
@@ -79,6 +85,8 @@ class SnapshotCapture {
   async #tick() {
     if (!this.timer || !this.runtime.attemptRunning()) return;
     const [webcam, screenShot] = await Promise.all([this.#webcam(), this.#screen()]);
+    if (!webcam) console.warn('snapshots: no webcam frame');
+    if (!screenShot) console.warn('snapshots: no screen capture');
     if (!webcam && !screenShot) return;
     await this.runtime.uploadSnapshots({ webcam, screen: screenShot });
   }
@@ -97,14 +105,22 @@ class SnapshotCapture {
     });
   }
 
-  /** Captures the primary display; resolves null on failure. */
+  /**
+   * Captures the primary display; resolves null on failure. On macOS,
+   * getSources can wait indefinitely on the Screen Recording prompt, so it
+   * is bounded like the webcam frame.
+   */
   async #screen() {
     try {
       const display = screen.getPrimaryDisplay();
-      const sources = await desktopCapturer.getSources({
-        types: ['screen'],
-        thumbnailSize: { width: display.size.width, height: display.size.height },
-      });
+      const sources = await withTimeout(
+        desktopCapturer.getSources({
+          types: ['screen'],
+          thumbnailSize: { width: display.size.width, height: display.size.height },
+        }),
+        FRAME_TIMEOUT_MS,
+      );
+      if (!sources) return null;
       const source = sources.find((s) => s.display_id === String(display.id)) ?? sources[0];
       if (!source || source.thumbnail.isEmpty()) return null;
       return source.thumbnail.toJPEG(SNAPSHOT_JPEG_QUALITY);
