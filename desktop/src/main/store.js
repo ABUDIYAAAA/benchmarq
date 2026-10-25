@@ -27,6 +27,9 @@ function write(name, value) {
 }
 
 function read(name) {
+  // Touch the keychain only when there is something to decrypt: on macOS
+  // every keychain access can show a permission prompt.
+  if (!fs.existsSync(filePath(name))) return null;
   try {
     if (!canEncrypt()) return null;
     return JSON.parse(safeStorage.decryptString(fs.readFileSync(filePath(name))));

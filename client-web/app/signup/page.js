@@ -47,7 +47,7 @@ export default function SignUpPage() {
     onError: (error) => {
       setFeedback({
         type: "error",
-        message: getApiErrorMessage(error, "Failed to create administrator account. Please try again."),
+        message: getApiErrorMessage(error, "Failed to create your account. Please try again."),
       });
     },
   });
@@ -92,11 +92,11 @@ export default function SignUpPage() {
   return (
     <AuthLayout>
       <AuthCard
-        title={createdUser ? "Check Your Email" : "Create Admin Account"}
+        title={createdUser ? "Check Your Email" : "Create Account"}
         subtitle={
           createdUser
             ? "We've sent a verification link to activate your account."
-            : "Set up your primary administrator credentials to manage the platform."
+            : "Create an account to take exams or manage your organization."
         }
         footer={
           <Typography sx={{ fontSize: "0.8125rem", color: "#71717a" }}>
@@ -218,7 +218,7 @@ export default function SignUpPage() {
               name="email"
               type="email"
               label="Work Email"
-              placeholder="admin@benchmarq.io"
+              placeholder="you@example.com"
               value={formData.email}
               onChange={handleChange}
               required

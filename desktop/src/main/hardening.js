@@ -11,7 +11,8 @@ const isAppUrl = (url) => {
   }
 };
 
-// Web contents allowed to use the camera: only the hidden snapshot window.
+// Web contents allowed to use the camera: the hidden snapshot window and the
+// exam window (for the waiting room's preview).
 const cameraContents = new WeakSet();
 
 /** Grants camera (video only) to one web contents. */
@@ -21,7 +22,7 @@ function allowCamera(webContents) {
 
 const videoOnly = (details) => (details?.mediaTypes ?? []).length > 0 && details.mediaTypes.every((t) => t === 'video');
 
-/** Standard Electron hardening: no permissions (except the snapshot camera), downloads, popups, webviews or off-site navigation. */
+/** Standard Electron hardening: no permissions (except the camera, see above), downloads, popups, webviews or off-site navigation. */
 function harden() {
   const ses = session.defaultSession;
   ses.setPermissionRequestHandler((wc, permission, callback, details) => {

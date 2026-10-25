@@ -117,15 +117,13 @@ async function createWindow() {
     else app.exit(0);
   });
 
-  // Nothing of the exam is shown until the machine passes the gate.
-  await controller.gate();
+  // Debugging or a VM quits before anything loads. Everything else (no
+  // launch link, apps to close) is explained by the page itself; kiosk mode
+  // starts once the system check passes.
+  await controller.preflight();
 
-  controller.lockdown.enforce();
   win.loadURL(EXAM_URL);
-  win.once('ready-to-show', () => {
-    win.show();
-    controller.lockdown.enforce();
-  });
+  win.once('ready-to-show', () => win.show());
 }
 
 app.whenReady().then(() => {

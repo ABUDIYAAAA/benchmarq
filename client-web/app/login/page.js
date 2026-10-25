@@ -80,11 +80,11 @@ function LoginForm() {
 
   return (
     <AuthCard
-      title="Admin Sign In"
-      subtitle="Authenticate with your credentials to manage exams, organizations, and candidates."
+      title="Sign In"
+      subtitle="Sign in to take your exams or manage your organization."
       footer={
         <Typography sx={{ fontSize: "0.8125rem", color: "#71717a" }}>
-          Need an administrator account?{" "}
+          Don&apos;t have an account?{" "}
           <Link
             href={redirectParam ? `/signup?redirect=${encodeURIComponent(redirectParam)}` : "/signup"}
             style={{
@@ -111,7 +111,7 @@ function LoginForm() {
           name="email"
           type="email"
           label="Email Address"
-          placeholder="admin@benchmarq.io"
+          placeholder="you@example.com"
           value={formData.email}
           onChange={handleChange}
           required

@@ -14,6 +14,26 @@ const (
 	DeviceIDCookieName     = "device_id"
 )
 
+// legacyRefreshPath is where older builds scoped the refresh cookie. A
+// browser still holding that cookie sends it before the current one (longer
+// path first), so every refresh read a stale token. It is expired whenever
+// auth cookies are written.
+const legacyRefreshPath = "/api/v1/auth"
+
+func expireLegacyRefreshCookie(w http.ResponseWriter, cfg *config.Config) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     RefreshTokenCookieName,
+		Value:    "",
+		Path:     legacyRefreshPath,
+		Domain:   cfg.CookieDomain,
+		MaxAge:   -1,
+		Expires:  time.Unix(0, 0),
+		HttpOnly: true,
+		Secure:   cfg.CookieSecure,
+		SameSite: ParseSameSite(cfg.CookieSameSite),
+	})
+}
+
 // ParseSameSite converts config string to http.SameSite enum.
 func ParseSameSite(sameSite string) http.SameSite {
 	switch strings.ToLower(sameSite) {
@@ -29,6 +49,7 @@ func ParseSameSite(sameSite string) http.SameSite {
 // SetAuthCookies sets access_token, refresh_token, and device_id cookies on the response.
 func SetAuthCookies(w http.ResponseWriter, cfg *config.Config, accessToken string, refreshToken string, deviceID string) {
 	sameSite := ParseSameSite(cfg.CookieSameSite)
+	expireLegacyRefreshCookie(w, cfg)
 
 	// Access Token Cookie
 	accessMaxAge := cfg.JWTAccessExpiryMinutes * 60
@@ -44,7 +65,7 @@ func SetAuthCookies(w http.ResponseWriter, cfg *config.Config, accessToken strin
 		SameSite: sameSite,
 	})
 
-	// Refresh Token Cookie (Scraped only on auth refresh/logout endpoints)
+	// Refresh Token Cookie
 	refreshMaxAge := cfg.JWTRefreshExpiryDays * 24 * 60 * 60
 	http.SetCookie(w, &http.Cookie{
 		Name:     RefreshTokenCookieName,
@@ -94,6 +115,7 @@ func SetAccessTokenCookie(w http.ResponseWriter, cfg *config.Config, accessToken
 // SetRefreshTokenCookie updates the refresh token cookie (after rotation).
 func SetRefreshTokenCookie(w http.ResponseWriter, cfg *config.Config, refreshToken string) {
 	sameSite := ParseSameSite(cfg.CookieSameSite)
+	expireLegacyRefreshCookie(w, cfg)
 	refreshMaxAge := cfg.JWTRefreshExpiryDays * 24 * 60 * 60
 
 	http.SetCookie(w, &http.Cookie{
@@ -128,6 +150,7 @@ func SetDeviceIDCookie(w http.ResponseWriter, cfg *config.Config, deviceID strin
 }
 func ClearAuthCookies(w http.ResponseWriter, cfg *config.Config) {
 	sameSite := ParseSameSite(cfg.CookieSameSite)
+	expireLegacyRefreshCookie(w, cfg)
 
 	http.SetCookie(w, &http.Cookie{
 		Name:     AccessTokenCookieName,

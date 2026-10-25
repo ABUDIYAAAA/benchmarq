@@ -35,6 +35,11 @@ const api = Object.freeze({
   session: Object.freeze({
     bootstrap: () => call('session:bootstrap'),
   }),
+  system: Object.freeze({
+    check: () => call('system:check'),
+    closeApps: () => call('system:closeApps'),
+    requestCamera: () => call('system:requestCamera'),
+  }),
   runtime: Object.freeze({
     refresh: () => call('runtime:refresh'),
     start: () => call('runtime:start'),
@@ -50,6 +55,8 @@ const api = Object.freeze({
   }),
   app: Object.freeze({
     quit: () => call('app:quit'),
+    openPortal: () => call('app:openPortal'),
+    enterFullscreen: () => call('app:enterFullscreen'),
   }),
   on,
 });

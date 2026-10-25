@@ -32,22 +32,22 @@ test('blocklist matches whole words only', () => {
   assert.ok(!isBlocked('Zoomit-like-editor-zoomer'));
 });
 
-test('offenders: windowed non-allowed apps and blocked background tools', () => {
-  const allowed = process.platform === 'win32' ? 'chrome.exe' : process.platform === 'darwin' ? 'Google Chrome' : 'chrome';
+test('offenders: only blocklisted tools, grouped per app', () => {
   const system = process.platform === 'win32' ? 'explorer.exe' : process.platform === 'darwin' ? 'Finder' : 'gnome-shell';
   const procs = [
-    { pid: 1, name: allowed, windowed: true },
-    { pid: 2, name: system, windowed: true },
-    { pid: 3, name: 'Notes', windowed: true },
-    { pid: 4, name: 'Notes', windowed: true },
-    { pid: 5, name: 'AnyDesk', windowed: false },
-    { pid: 6, name: 'cupsd', windowed: false },
-    { pid: 7, name: 'Benchmarq Exam', windowed: true },
+    { pid: 1, name: 'Google Chrome' },
+    { pid: 2, name: system },
+    { pid: 3, name: 'Notes' },
+    { pid: 4, name: 'XProtect' },
+    { pid: 5, name: 'AnyDesk' },
+    { pid: 6, name: 'Discord' },
+    { pid: 7, name: 'Discord' },
+    { pid: 8, name: 'zoom.us' },
   ];
-  const offenders = findOffenders(procs, new Set([7]));
+  const offenders = findOffenders(procs, new Set([8]));
   assert.deepEqual(
     offenders.map((o) => [o.name, o.reason, o.pids]),
-    [['Notes', 'not_allowed', [3, 4]], ['AnyDesk', 'blocked', [5]]],
+    [['AnyDesk', 'blocked', [5]], ['Discord', 'blocked', [6, 7]]],
   );
 });
 

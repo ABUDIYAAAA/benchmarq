@@ -7,12 +7,12 @@ import { syncServerTime } from "@/hooks/exam/useServerClock";
 /**
  * Single source of truth for the exam window. It mirrors what the desktop
  * app's main process knows (session and attempt) and derives
- * the screen to show. System checks happen in the desktop app before this
- * page is ever loaded:
+ * the screen to show:
  *
- *   unsupported -> not running inside Benchmarq Exam
- *   loading     -> waiting for the bridge
- *   no_session  -> opened without a valid launch link
+ *   unsupported  -> not running inside Benchmarq Exam
+ *   loading      -> waiting for the bridge
+ *   no_session   -> opened without a valid launch link
+ *   system_check -> other applications must be closed first
  *   waiting     -> waiting room until the exam can start (or resume)
  *   exam        -> attempt in progress
  *   ended       -> attempt finished
@@ -24,6 +24,7 @@ export function useExamRuntime() {
   // undefined while server-rendering/hydrating, null outside the desktop app.
   const bridge = useSyncExternalStore(subscribeNever, getBridge, () => undefined);
   const [boot, setBoot] = useState(null);
+  const [system, setSystem] = useState(null);
   const [state, setState] = useState(null);
   const [attempt, setAttempt] = useState(null);
   const [entered, setEntered] = useState(false);
@@ -52,6 +53,7 @@ export function useExamRuntime() {
     invoke(bridge.session.bootstrap).then((b) => {
       if (cancelled) return;
       setBoot(b);
+      setSystem(b.system);
       applyState(b.state);
     });
 
@@ -81,6 +83,7 @@ export function useExamRuntime() {
     if (!boot) return "loading";
     if (status && ATTEMPT_ENDED.has(status)) return "ended";
     if (invalid || !state) return "no_session";
+    if (system && !system.clear) return "system_check";
     if (status === "in_progress" && entered) return "exam";
     return "waiting";
   })();
@@ -106,6 +109,11 @@ export function useExamRuntime() {
       question: () => invoke(rt.question),
       navigate: (position) => invoke(rt.navigate, position),
       saveResponse: (input) => invoke(rt.saveResponse, input),
+      checkSystem: async () => setSystem(await invoke(bridge.system.check)),
+      closeApps: async () => setSystem(await invoke(bridge.system.closeApps)),
+      openPortal: () => invoke(bridge.app.openPortal),
+      requestCamera: () => invoke(bridge.system.requestCamera),
+      enterFullscreen: () => invoke(bridge.app.enterFullscreen),
       quit: () => invoke(bridge.app.quit),
     };
   }, [bridge, applyState, applyAttempt]);
@@ -113,6 +121,7 @@ export function useExamRuntime() {
   return {
     bridge,
     boot,
+    system,
     phase,
     state,
     attempt,

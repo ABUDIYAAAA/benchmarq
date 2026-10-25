@@ -1,8 +1,11 @@
 'use strict';
 
 // Flips Electron fuses on the packaged binary so it cannot be repurposed:
-// no ELECTRON_RUN_AS_NODE, no NODE_OPTIONS, no --inspect, app code only from
-// an integrity-checked asar, and cookies encrypted at rest.
+// no ELECTRON_RUN_AS_NODE, no NODE_OPTIONS, no --inspect and app code only
+// from an integrity-checked asar. Cookie encryption stays off: the app keeps no
+// credentials in cookies (the session token lives in the main process, see
+// store.js), and on macOS it made the network process ask for Keychain access
+// on every launch.
 const fs = require('node:fs');
 const path = require('node:path');
 const { flipFuses, FuseVersion, FuseV1Options } = require('@electron/fuses');
@@ -36,7 +39,7 @@ module.exports = async function afterPack(context) {
     [FuseV1Options.RunAsNode]: false,
     [FuseV1Options.EnableNodeOptionsEnvironmentVariable]: false,
     [FuseV1Options.EnableNodeCliInspectArguments]: false,
-    [FuseV1Options.EnableCookieEncryption]: true,
+    [FuseV1Options.EnableCookieEncryption]: false,
     [FuseV1Options.EnableEmbeddedAsarIntegrityValidation]: true,
     [FuseV1Options.OnlyLoadAppFromAsar]: true,
     [FuseV1Options.LoadBrowserProcessSpecificV8Snapshot]: false,

@@ -88,7 +88,7 @@ export default function DashboardSidebar() {
     >
       {/* Top Header: Brand Logo */}
       <Box sx={{ p: 2.5, borderBottom: "1px solid #f4f4f5" }}>
-        <BrandLogo subtitle="Admin Console" />
+        <BrandLogo />
       </Box>
 
       {/* Workspace Switcher */}

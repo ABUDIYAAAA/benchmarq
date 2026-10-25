@@ -140,6 +140,10 @@ export const theme = createTheme({
           padding: "10px 14px",
           color: "#09090b",
         },
+        // Match the single-line padding so labels line up in text areas too.
+        multiline: {
+          padding: "10px 14px",
+        },
       },
     },
     MuiInputLabel: {
@@ -147,6 +151,11 @@ export const theme = createTheme({
         root: {
           fontSize: "0.875rem",
           color: "#71717a",
+          // The resting label is centred for MUI's 56px field; inputs here are
+          // 40px tall (10px padding), so move it up to sit on the text line.
+          "&.MuiInputLabel-outlined:not(.MuiInputLabel-shrink)": {
+            transform: "translate(14px, 10px) scale(1)",
+          },
           "&.Mui-focused": {
             color: "#09090b",
           },

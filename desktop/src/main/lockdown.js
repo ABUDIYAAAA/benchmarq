@@ -4,11 +4,12 @@ const { app } = require('electron');
 const { EventEmitter } = require('node:events');
 const { NO_LOCKDOWN } = require('./config');
 
-// Shortcuts swallowed in the exam window: reload, close/quit, devtools,
+// Shortcuts swallowed in the exam window: reload, close, devtools,
 // minimize/hide and fullscreen toggles. "Mod" is Cmd on macOS, Ctrl elsewhere.
+// Cmd+Q stays available: during an attempt it asks before leaving.
 const BLOCKED_KEYS = new Set([
   'Mod+R', 'Mod+Shift+R', 'F5',
-  'Mod+W', 'Mod+Q', 'Alt+F4',
+  'Mod+W', 'Alt+F4',
   'F12', 'Mod+Shift+I', 'Mod+Alt+I', 'Mod+Shift+J', 'Mod+Alt+J', 'Mod+Shift+C', 'Mod+Alt+C',
   'Mod+M', 'Mod+H', 'Mod+Alt+H',
   'F11', 'Mod+Ctrl+F',

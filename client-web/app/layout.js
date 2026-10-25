@@ -17,8 +17,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata = {
-  title: "Benchmarq Admin",
-  description: "Benchmarq Administrator Authentication & Console",
+  title: "Benchmarq",
+  description: "Benchmarq exams",
 };
 
 export default function RootLayout({ children }) {

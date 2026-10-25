@@ -42,7 +42,7 @@ export function useCurrentUser(options = {}) {
 }
 
 /**
- * Hook to authenticate administrator credentials
+ * Hook to authenticate user credentials
  */
 export function useLoginMutation(options = {}) {
   const queryClient = useQueryClient();
@@ -63,7 +63,7 @@ export function useLoginMutation(options = {}) {
 }
 
 /**
- * Hook to register new administrator account
+ * Hook to register a new account
  */
 export function useSignUpMutation(options = {}) {
   const queryClient = useQueryClient();
@@ -84,7 +84,7 @@ export function useSignUpMutation(options = {}) {
 }
 
 /**
- * Hook to log out active administrator session
+ * Hook to log out the active session
  */
 export function useLogoutMutation(options = {}) {
   const queryClient = useQueryClient();

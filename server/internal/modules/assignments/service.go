@@ -133,7 +133,8 @@ func (s *service) sendInvites(ctx context.Context, examID uuid.UUID, exam *examR
 		return 0
 	}
 
-	examURL := fmt.Sprintf("%s/exams/%s", s.opts.FrontendURL, examID)
+	// Candidates launch exams from My exams; there is no per-exam page.
+	examURL := s.opts.FrontendURL + "/dashboard/my-exams"
 	startTime := ""
 	if exam.StartTime != nil && exams.ScheduleType(exam.ScheduleType) != exams.ScheduleOpenEnded {
 		startTime = exam.StartTime.UTC().Format("Mon, 02 Jan 2006 15:04 MST")

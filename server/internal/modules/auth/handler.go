@@ -68,7 +68,7 @@ func (h *Handler) SignUpHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set auth cookies (access_token, refresh_token, device_id)
+	// Set auth cookies (access, refresh and device ID)
 	cookies.SetAuthCookies(w, h.cfg, tokens.AccessToken, tokens.RefreshToken, authResp.DeviceID)
 
 	response.Success(w, http.StatusCreated, "User registered successfully", authResp)
@@ -100,7 +100,7 @@ func (h *Handler) LoginHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Set auth cookies (access_token, refresh_token, device_id)
+	// Set auth cookies (access, refresh and device ID)
 	cookies.SetAuthCookies(w, h.cfg, tokens.AccessToken, tokens.RefreshToken, authResp.DeviceID)
 
 	response.Success(w, http.StatusOK, "Login successful", authResp)

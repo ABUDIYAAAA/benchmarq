@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import Box from "@mui/material/Box";
 import CircularProgress from "@mui/material/CircularProgress";
 import DashboardSidebar from "@/components/layout/DashboardSidebar";
@@ -9,13 +9,15 @@ import { useAuth } from "@/context/AuthContext";
 
 export default function DashboardLayout({ children }) {
   const router = useRouter();
+  const pathname = usePathname();
   const { user, isLoading, isAuthenticated } = useAuth();
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      router.push("/login");
+      // Come back here after signing in, e.g. from an exam invitation link.
+      router.push(`/login?redirect=${encodeURIComponent(pathname)}`);
     }
-  }, [isLoading, isAuthenticated, router]);
+  }, [isLoading, isAuthenticated, router, pathname]);
 
   if (isLoading || !user) {
     return (

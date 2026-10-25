@@ -1,19 +1,20 @@
 'use strict';
 
-const { app, dialog, ipcMain } = require('electron');
-const { APP_ORIGIN, APP_SCAN_INTERVAL_MS } = require('./config');
+const { app, dialog, ipcMain, shell, systemPreferences } = require('electron');
+const { APP_ORIGIN, APP_SCAN_INTERVAL_MS, PORTAL_URL } = require('./config');
 const { Runtime, RuntimeError } = require('./runtime');
 const { Lockdown } = require('./lockdown');
 const checks = require('./integrity/checks');
 const { SnapshotCapture } = require('./snapshots');
+const { allowCamera } = require('./hardening');
 
 // Development only: skip the pre-exam gate so the app can run next to an
 // editor and terminal. Packaged builds never honour it.
 const RELAXED = !app.isPackaged && process.env.BENCHMARQ_RELAXED === '1';
 
 /**
- * Owns the exam window: the server session, the system gate that runs before
- * the exam page loads, the lockdown during an attempt, and the IPC surface
+ * Owns the exam window: the server session, the system checks shown before
+ * an attempt can start, the lockdown during an attempt, and the IPC surface
  * exposed through the preload bridge.
  */
 class ExamController {
@@ -24,9 +25,12 @@ class ExamController {
     this.snapshots = new SnapshotCapture(this.runtime);
     this.scanTimer = null;
     this.ready = Promise.resolve();
+    this.cleared = false;
     this.bootError = null;
     this.channels = [];
 
+    // The waiting room shows a camera preview before the exam starts.
+    allowCamera(win.webContents);
     this.#wire();
     this.#registerIpc();
   }
@@ -48,11 +52,11 @@ class ExamController {
   // ----- Gate ------------------------------------------------------------------
 
   /**
-   * Runs before the exam page is loaded and resolves once the machine is
-   * clean; otherwise it quits or restarts the app. The dialogs are native,
-   * so nothing of the exam is shown until the gate passes.
+   * Runs before the window loads anything. Tampering and virtual machines
+   * cannot be fixed by the candidate, so they quit with a native dialog. Open
+   * applications are checked later, in the page (see #checkSystem).
    */
-  async gate() {
+  async preflight() {
     if (RELAXED) return;
 
     if (checks.tampered()) {
@@ -61,35 +65,37 @@ class ExamController {
     if (await checks.virtualMachine()) {
       await this.#fatal('Benchmarq Exam cannot run inside a virtual machine. Use a physical computer.');
     }
+  }
 
-    for (;;) {
-      const apps = await checks.disallowedApps();
-      if (apps.length === 0) return;
+  /** Lists the blocked applications that must be closed before the exam can start. */
+  async #checkSystem() {
+    const apps = RELAXED ? [] : await checks.disallowedApps();
+    this.cleared = apps.length === 0;
+    return { clear: this.cleared, apps: apps.map((a) => a.name) };
+  }
 
-      const { response } = await dialog.showMessageBox({
-        type: 'warning',
-        buttons: ['Close apps and restart', 'Check again', 'Quit'],
-        defaultId: 0,
-        cancelId: 2,
-        title: 'Close other applications',
-        message: 'Close these applications before the exam can open:',
-        detail: `${apps.map((a) => `• ${a.name}`).join('\n')}\n\nOnly Google Chrome may stay open. Unsaved work in the closed applications will be lost.`,
-      });
+  /** Asks macOS for camera access; other platforms grant it per request. */
+  async #requestCamera() {
+    if (process.platform !== 'darwin') return true;
+    return systemPreferences.askForMediaAccess('camera').catch(() => false);
+  }
 
-      if (response === 2) await this.#exit(0);
-      if (response === 0) {
-        const remaining = await checks.closeApps(apps);
-        if (remaining.length === 0) {
-          app.relaunch();
-          await this.#exit(0);
-        }
-        await dialog.showMessageBox({
-          type: 'error',
-          message: 'Some applications could not be closed',
-          detail: `Close these manually, then choose Check again:\n${remaining.map((n) => `• ${n}`).join('\n')}`,
-        });
-      }
+  /** Closes the reported apps and restarts the app; returns what survived. */
+  async #closeApps() {
+    const apps = RELAXED ? [] : await checks.disallowedApps();
+    const remaining = apps.length ? await checks.closeApps(apps) : [];
+    if (remaining.length === 0) {
+      app.relaunch();
+      await this.#exit(0);
     }
+    this.cleared = false;
+    return { clear: false, apps: remaining };
+  }
+
+  /** Starting or resuming an attempt always re-checks the machine. */
+  async #requireClear() {
+    const { clear } = await this.#checkSystem();
+    if (!clear) throw new RuntimeError(412, 'Close the blocked applications before starting the exam.');
   }
 
   async #fatal(message) {
@@ -177,15 +183,21 @@ class ExamController {
     const rt = this.runtime;
     this.#handle('session:bootstrap', async () => {
       await this.ready;
-      return { status: rt.state ? 'active' : 'none', error: this.bootError, state: rt.state };
+      // The system check only matters once there is an exam to open.
+      const system = rt.state ? await this.#checkSystem() : null;
+      return { status: rt.state ? 'active' : 'none', error: this.bootError, state: rt.state, system };
     });
+    this.#handle('system:check', () => this.#checkSystem());
+    this.#handle('system:closeApps', () => this.#closeApps());
     this.#handle('runtime:refresh', () => rt.refresh());
     this.#handle('runtime:start', async () => {
+      await this.#requireClear();
       const state = await rt.start();
       this.#startMonitoring();
       return state;
     });
     this.#handle('runtime:resumeAttempt', async () => {
+      await this.#requireClear();
       const state = await rt.refresh();
       if (!rt.attemptRunning()) throw new RuntimeError(409, 'There is no attempt in progress');
       this.#startMonitoring();
@@ -200,6 +212,14 @@ class ExamController {
     this.#handle('runtime:resume', () => rt.resume());
     this.#handle('runtime:submit', () => rt.submit());
     this.#handle('app:quit', () => this.requestQuit());
+    this.#handle('app:openPortal', () => shell.openExternal(PORTAL_URL));
+    this.#handle('system:requestCamera', () => this.#requestCamera());
+    // Kiosk mode starts when the candidate asks for it in the waiting room,
+    // and in any case when the attempt starts (#startMonitoring).
+    this.#handle('app:enterFullscreen', () => {
+      this.lockdown.enforce();
+      return true;
+    });
   }
 
   /** Quitting is free outside an attempt; during one it needs confirmation. */

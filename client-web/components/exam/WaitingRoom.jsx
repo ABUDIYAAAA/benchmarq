@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
 import Checkbox from "@mui/material/Checkbox";
@@ -31,8 +31,10 @@ const STATUS_TEXT = {
  */
 export default function WaitingRoom({ state, attempt, actions }) {
   const [agreed, setAgreed] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState(null);
+  const { status: cameraStatus, attach: attachCamera, start: startCamera, stop: stopCamera } = useCameraPreview(actions);
 
   const availability = state?.availability;
   const exam = state?.exam;
@@ -53,10 +55,21 @@ export default function WaitingRoom({ state, attempt, actions }) {
     if (opensIn === 0) actions.refresh().catch(() => {});
   }, [opensIn, actions]);
 
+  const enterFullscreen = async () => {
+    setError(null);
+    try {
+      setFullscreen(await actions.enterFullscreen());
+    } catch (err) {
+      setError(err.message);
+    }
+  };
+
   const begin = async () => {
     setBusy(true);
     setError(null);
     try {
+      // Release the preview: the proctoring capture opens its own camera.
+      stopCamera();
       if (resuming) await actions.resumeAttempt();
       else await actions.start();
     } catch (err) {
@@ -158,13 +171,74 @@ export default function WaitingRoom({ state, attempt, actions }) {
 
           <Divider sx={{ my: 2.5 }} />
 
-          {!resuming && (
-            <FormControlLabel
-              sx={{ alignItems: "flex-start", m: 0, mb: 2, "& .MuiFormControlLabel-label": { fontSize: "0.8125rem", pt: 1 } }}
-              control={<Checkbox size="small" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />}
-              label="I have read the instructions and agree to the exam rules."
-            />
-          )}
+          <Step n={1} title="Rules" done={resuming || agreed}>
+            {resuming ? (
+              <Typography variant="body2">You already agreed to the rules.</Typography>
+            ) : (
+              <FormControlLabel
+                sx={{ alignItems: "flex-start", m: 0, "& .MuiFormControlLabel-label": { fontSize: "0.8125rem", pt: 1 } }}
+                control={<Checkbox size="small" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} />}
+                label="I have read the instructions and agree to the exam rules."
+              />
+            )}
+          </Step>
+
+          <Step n={2} title="Camera" done={cameraStatus === "on"}>
+            <Box
+              sx={{
+                position: "relative",
+                aspectRatio: "4 / 3",
+                bgcolor: "#09090b",
+                borderRadius: 1.5,
+                overflow: "hidden",
+                display: cameraStatus === "on" ? "block" : "none",
+              }}
+            >
+              <Box
+                component="video"
+                ref={attachCamera}
+                autoPlay
+                muted
+                playsInline
+                sx={{ width: "100%", height: "100%", objectFit: "cover", transform: "scaleX(-1)" }}
+              />
+            </Box>
+            {cameraStatus === "on" ? (
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                Make sure your face is clearly visible.
+              </Typography>
+            ) : (
+              <>
+                <Typography variant="body2" sx={{ mb: 1.5 }}>
+                  {cameraStatus === "denied"
+                    ? "Camera access was blocked. Allow Benchmarq Exam in System Settings > Privacy & Security > Camera, then try again."
+                    : cameraStatus === "error"
+                      ? "No camera could be opened. Connect a camera, close apps that may be using it, then try again."
+                      : "Snapshots from your camera are taken during the exam."}
+                </Typography>
+                <Button fullWidth variant="outlined" disabled={cameraStatus === "pending"} onClick={startCamera}>
+                  {cameraStatus === "pending" ? "Waiting for camera..." : cameraStatus === "idle" ? "Allow camera" : "Try again"}
+                </Button>
+              </>
+            )}
+          </Step>
+
+          <Step n={3} title="Full screen" done={fullscreen}>
+            {fullscreen ? (
+              <Typography variant="body2">The exam window is locked to full screen.</Typography>
+            ) : (
+              <>
+                <Typography variant="body2" sx={{ mb: 1.5 }}>
+                  The exam window fills the screen and stays in front until you finish.
+                </Typography>
+                <Button fullWidth variant="outlined" disabled={cameraStatus !== "on"} onClick={enterFullscreen}>
+                  Enter full screen
+                </Button>
+              </>
+            )}
+          </Step>
+
+          <Divider sx={{ my: 2.5 }} />
 
           {error && (
             <Typography variant="body2" sx={{ mb: 2, color: "text.primary", fontWeight: 500 }}>
@@ -172,7 +246,7 @@ export default function WaitingRoom({ state, attempt, actions }) {
             </Typography>
           )}
 
-          <Button fullWidth variant="contained" size="large" disabled={!canStart || (!resuming && !agreed) || busy} onClick={begin}>
+          <Button fullWidth variant="contained" size="large" disabled={!canStart || (!resuming && !agreed) || cameraStatus !== "on" || !fullscreen || busy} onClick={begin}>
             {busy ? <CircularProgress size={20} color="inherit" /> : resuming ? "Resume exam" : "Start exam"}
           </Button>
         </Paper>
@@ -192,4 +266,76 @@ function progressionText(mode) {
     default:
       return "You may move between unlocked sections in any order.";
   }
+}
+
+function Step({ n, title, done, children }) {
+  return (
+    <Box sx={{ "& + &": { mt: 2.5 } }}>
+      <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 1 }}>
+        <Box
+          sx={{
+            width: 20,
+            height: 20,
+            borderRadius: "50%",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            fontSize: "0.6875rem",
+            fontWeight: 600,
+            border: "1px solid",
+            borderColor: done ? "#09090b" : "divider",
+            bgcolor: done ? "#09090b" : "transparent",
+            color: done ? "#ffffff" : "text.secondary",
+          }}
+        >
+          {n}
+        </Box>
+        <Typography sx={{ fontWeight: 600, fontSize: "0.875rem" }}>{title}</Typography>
+      </Box>
+      {children}
+    </Box>
+  );
+}
+
+/**
+ * Asks the desktop app for camera access (the macOS prompt), then opens the
+ * camera in the page for a live preview. The stream is released on unmount.
+ */
+function useCameraPreview(actions) {
+  const [status, setStatus] = useState("idle"); // idle | pending | on | denied | error
+  const streamRef = useRef(null);
+  const videoRef = useRef(null);
+
+  const stop = useCallback(() => {
+    streamRef.current?.getTracks().forEach((t) => t.stop());
+    streamRef.current = null;
+  }, []);
+
+  // The video element is mounted before the stream exists (it is only
+  // hidden), so remember it and attach the stream whenever either arrives.
+  const attach = useCallback((video) => {
+    videoRef.current = video;
+    if (video) video.srcObject = streamRef.current;
+  }, []);
+
+  const start = async () => {
+    setStatus("pending");
+    try {
+      if (!(await actions.requestCamera())) {
+        setStatus("denied");
+        return;
+      }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 640, height: 480 }, audio: false });
+      stop();
+      streamRef.current = stream;
+      if (videoRef.current) videoRef.current.srcObject = stream;
+      setStatus("on");
+    } catch (err) {
+      setStatus(err?.name === "NotAllowedError" ? "denied" : "error");
+    }
+  };
+
+  useEffect(() => stop, [stop]);
+
+  return { status, attach, start, stop };
 }

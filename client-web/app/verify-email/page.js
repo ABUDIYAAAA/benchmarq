@@ -80,7 +80,7 @@ function VerifyEmailContent() {
       title={isVerified ? "Email Verified" : "Verify Email Address"}
       subtitle={
         isVerified
-          ? "Your administrator account has been successfully verified."
+          ? "Your account has been successfully verified."
           : "Confirm your email address to access all features."
       }
       footer={
@@ -95,7 +95,7 @@ function VerifyEmailContent() {
               textUnderlineOffset: 3,
             }}
           >
-            Admin Dashboard
+            Dashboard
           </Link>
           {" • "}
           <Link
@@ -151,7 +151,7 @@ function VerifyEmailContent() {
               Account Activated
             </Typography>
             <Typography sx={{ fontSize: "0.8125rem", color: "#71717a", mt: 0.25 }}>
-              Your credentials and administrator permissions are now active.
+              Your account is now active.
             </Typography>
           </Box>
 
@@ -159,7 +159,7 @@ function VerifyEmailContent() {
             type="button"
             onClick={() => router.push("/dashboard")}
           >
-            Continue to Admin Dashboard
+            Continue to Dashboard
           </AuthButton>
         </Box>
       ) : verifyMutation.isPending ? (
@@ -228,7 +228,7 @@ function VerifyEmailContent() {
             variant="outlined"
             onClick={() => router.push("/dashboard")}
           >
-            Go to Admin Dashboard
+            Go to Dashboard
           </AuthButton>
         </Box>
       )}

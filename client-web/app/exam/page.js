@@ -6,6 +6,7 @@ import CircularProgress from "@mui/material/CircularProgress";
 import Typography from "@mui/material/Typography";
 import ExamMessage from "@/components/exam/ExamMessage";
 import ExamShell from "@/components/exam/ExamShell";
+import SystemCheck from "@/components/exam/SystemCheck";
 import WaitingRoom from "@/components/exam/WaitingRoom";
 import { useExamRuntime } from "@/hooks/exam/useExamRuntime";
 import { END_REASON_TEXT } from "@/lib/exam/bridge";
@@ -17,7 +18,7 @@ import { END_REASON_TEXT } from "@/lib/exam/bridge";
  */
 export default function ExamPage() {
   const runtime = useExamRuntime();
-  const { phase, boot, state, attempt, actions } = runtime;
+  const { phase, boot, system, state, attempt, actions } = runtime;
 
   switch (phase) {
     case "unsupported":
@@ -34,19 +35,31 @@ export default function ExamPage() {
         </Box>
       );
 
-    case "no_session":
+    case "no_session": {
+      const error = runtime.invalid?.message ?? boot?.error?.message;
       return (
         <ExamMessage
-          title="No exam to show"
+          title={error ? "This exam could not be opened" : "Open your exam from the browser"}
           actions={
-            <Button variant="outlined" onClick={actions.quit}>
-              Quit
-            </Button>
+            <>
+              <Button variant="contained" onClick={actions.openPortal}>
+                Open portal
+              </Button>
+              <Button variant="outlined" onClick={actions.quit}>
+                Quit
+              </Button>
+            </>
           }
         >
-          {runtime.invalid?.message ?? boot?.error?.message ?? "Launch your exam from the candidate portal to open it here."}
+          {error
+            ? `${error} Launch the exam again from the candidate portal.`
+            : "Benchmarq Exam opens exams from the candidate portal. Sign in in your browser, go to My exams and choose Launch exam."}
         </ExamMessage>
       );
+    }
+
+    case "system_check":
+      return <SystemCheck apps={system.apps} actions={actions} />;
 
     case "waiting":
       return <WaitingRoom state={state} attempt={attempt} actions={actions} />;

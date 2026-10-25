@@ -51,7 +51,7 @@ export default function ForgotPasswordPage() {
     <AuthLayout>
       <AuthCard
         title="Forgot Password"
-        subtitle="Enter the email associated with your administrator account and we will send recovery instructions."
+        subtitle="Enter the email associated with your account and we will send recovery instructions."
         footer={
           <Typography sx={{ fontSize: "0.8125rem", color: "#71717a" }}>
             Remembered your password?{" "}
@@ -78,7 +78,7 @@ export default function ForgotPasswordPage() {
         {isSubmitted ? (
           <Box sx={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <Typography sx={{ fontSize: "0.875rem", color: "#09090b" }}>
-              Please check your inbox. If the email is registered, you will find a link to reset your administrator password.
+              Please check your inbox. If the email is registered, you will find a link to reset your password.
             </Typography>
             <AuthButton
               type="button"
@@ -98,7 +98,7 @@ export default function ForgotPasswordPage() {
               name="email"
               type="email"
               label="Account Email"
-              placeholder="admin@benchmarq.io"
+              placeholder="you@example.com"
               value={email}
               onChange={(e) => {
                 setEmail(e.target.value);

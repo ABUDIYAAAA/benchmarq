@@ -3,21 +3,21 @@
 const { execFile } = require('node:child_process');
 const { promisify } = require('node:util');
 const path = require('node:path');
-const { ALLOWED_APPS, SYSTEM_APPS, BLOCKED_PROCESSES } = require('../config');
+const { SYSTEM_APPS, BLOCKED_PROCESSES } = require('../config');
 
 const run = promisify(execFile);
 const EXEC_OPTS = { timeout: 10_000, maxBuffer: 8 * 1024 * 1024, windowsHide: true };
 
 /**
- * @typedef {{ pid: number, name: string, path: string, windowed: boolean }} Proc
- * @typedef {{ pid: number, name: string, reason: 'not_allowed' | 'blocked' }} Offender
+ * @typedef {{ pid: number, name: string, path: string }} Proc
+ * @typedef {{ name: string, reason: 'blocked', pids: number[] }} Offender
  */
 
 // ---------------------------------------------------------------------------
 // Listing
 // ---------------------------------------------------------------------------
 
-/** Lists the current user's processes, flagging those that are GUI apps. */
+/** Lists the current user's processes. */
 async function listProcesses() {
   switch (process.platform) {
     case 'darwin':
@@ -32,8 +32,7 @@ async function listProcesses() {
 // macOS: `ps` needs no extra permissions (unlike System Events scripting).
 // Every process inside an app bundle is attributed to the outermost bundle,
 // so helpers ("Discord Helper (Renderer)") are reported and killed with
-// their app. The app counts as windowed through its main executable,
-// X.app/Contents/MacOS/X.
+// their app.
 async function listDarwin() {
   const uid = process.getuid();
   const { stdout } = await run('/bin/ps', ['-axo', 'pid=,uid=,comm='], EXEC_OPTS);
@@ -43,13 +42,7 @@ async function listDarwin() {
     if (!m || Number(m[2]) !== uid) continue;
     const exe = m[3].trim();
     const outer = exe.match(/^(.*?\/([^/]+)\.app)\//);
-    const mainExe = outer && new RegExp(`^${escape(outer[1])}/Contents/MacOS/[^/]+$`).test(exe);
-    out.push({
-      pid: Number(m[1]),
-      name: outer ? outer[2] : path.basename(exe),
-      path: exe,
-      windowed: Boolean(mainExe) && !exe.startsWith('/System/'),
-    });
+    out.push({ pid: Number(m[1]), name: outer ? outer[2] : path.basename(exe), path: exe });
   }
   return out;
 }
@@ -57,37 +50,24 @@ async function listDarwin() {
 async function listWindows() {
   const script =
     "Get-Process -ErrorAction SilentlyContinue | Where-Object { $_.SessionId -eq (Get-Process -Id $PID).SessionId } | " +
-    "Select-Object Id, ProcessName, @{n='Path';e={$_.Path}}, @{n='Win';e={$_.MainWindowHandle -ne 0}} | ConvertTo-Json -Compress";
+    "Select-Object Id, ProcessName, @{n='Path';e={$_.Path}} | ConvertTo-Json -Compress";
   const { stdout } = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-Command', script], EXEC_OPTS);
   const rows = JSON.parse(stdout || '[]');
   return (Array.isArray(rows) ? rows : [rows]).map((r) => ({
     pid: r.Id,
     name: `${r.ProcessName}.exe`,
     path: r.Path ?? '',
-    windowed: Boolean(r.Win),
   }));
 }
 
-// Linux has no portable notion of "app with a window"; wmctrl (if present)
-// lists window owners, otherwise only the blocklist is enforced.
 async function listLinux() {
   const uid = process.getuid();
   const { stdout } = await run('ps', ['-eo', 'pid=,uid=,comm='], EXEC_OPTS);
-  const windowedPids = new Set();
-  try {
-    const { stdout: wm } = await run('wmctrl', ['-lp'], EXEC_OPTS);
-    for (const line of wm.split('\n')) {
-      const pid = Number(line.trim().split(/\s+/)[2]);
-      if (pid > 0) windowedPids.add(pid);
-    }
-  } catch {
-    // wmctrl unavailable
-  }
   return stdout
     .split('\n')
     .map((line) => line.match(/^\s*(\d+)\s+(\d+)\s+(.+)$/))
     .filter((m) => m && Number(m[2]) === uid)
-    .map((m) => ({ pid: Number(m[1]), name: m[3].trim(), path: '', windowed: windowedPids.has(Number(m[1])) }));
+    .map((m) => ({ pid: Number(m[1]), name: m[3].trim(), path: '' }));
 }
 
 // ---------------------------------------------------------------------------
@@ -112,9 +92,9 @@ function escape(s) {
 }
 
 /**
- * Finds processes that must be closed before (and stay closed during) the
- * exam: blocklisted tools regardless of windows, and any windowed app that is
- * neither allowed nor part of the OS. ownPids are this app's own processes.
+ * Finds blocklisted tools (remote access, screen recording, messaging, AI
+ * assistants) that must be closed before, and stay closed during, the exam.
+ * Every other application is left alone. ownPids are this app's own processes.
  *
  * @param {Proc[]} procs
  * @param {Set<number>} ownPids
@@ -123,17 +103,12 @@ function escape(s) {
 function findOffenders(procs, ownPids) {
   const seen = new Map();
   for (const p of procs) {
-    if (ownPids.has(p.pid) || matchesAny(p.name, SYSTEM_APPS)) continue;
-    let reason = null;
-    if (isBlocked(p.name)) reason = 'blocked';
-    else if (p.windowed && !matchesAny(p.name, ALLOWED_APPS)) reason = 'not_allowed';
-    if (!reason) continue;
+    if (ownPids.has(p.pid) || matchesAny(p.name, SYSTEM_APPS) || !isBlocked(p.name)) continue;
 
     // Report one row per app, but remember every PID to terminate.
     const key = normalize(p.name);
-    const row = seen.get(key) ?? { name: p.name, reason, pids: [] };
+    const row = seen.get(key) ?? { name: p.name, reason: 'blocked', pids: [] };
     row.pids.push(p.pid);
-    if (reason === 'blocked') row.reason = 'blocked';
     seen.set(key, row);
   }
   return [...seen.values()];

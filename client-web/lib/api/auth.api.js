@@ -6,7 +6,7 @@ import apiClient from "./axios";
  */
 export const authApi = {
   /**
-   * Register a new administrator user
+   * Register a new user
    * @param {{ email: string, password: string, first_name: string, last_name?: string }} data
    */
   async signup(data) {
@@ -15,7 +15,7 @@ export const authApi = {
   },
 
   /**
-   * Authenticate administrator
+   * Authenticate a user
    * @param {{ email: string, password: string }} data
    */
   async login(data) {
